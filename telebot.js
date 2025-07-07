@@ -529,10 +529,13 @@ bot.start(async ctx => {
     `✨ <b>No SOL needed in your wallets - we cover all gas fees!</b>\n\n` +
     `💻 <b>We're open source!</b> Check out our code at <a href="https://github.com/TheUnknownIndividual/solbeck">GitHub</a>\n\n` +
     `🚀 Choose your action:`,
-    Markup.inlineKeyboard([
-      [Markup.button.callback('🗯 Continue with Full Cleanup', 'CONTINUE')],
-      [Markup.button.callback('🔥 Burn Leftover Tokens', 'BURN_LEFTOVER')]
-    ])
+    {
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback('🗯 Continue with Full Cleanup', 'CONTINUE')],
+        [Markup.button.callback('🔥 Burn Leftover Tokens', 'BURN_LEFTOVER')]
+      ]).reply_markup,
+      disable_web_page_preview: true
+    }
   );
 });
 

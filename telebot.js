@@ -29,8 +29,10 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const FEE_PAYER_SECRET = process.env.FEE_PAYER_SECRET;
 const RPC_URL = process.env.RPC_URL;
 const FEE_COLLECTOR_ADDRESS = process.env.FEE_COLLECTOR;
-const FEE_RATE = parseFloat(process.env.FEE_RATE) || 0.10;
-const MINIMUM_RENT = parseInt(process.env.MINIMUM_RENT) || 890880;
+
+// Fixed fee settings (public and transparent)
+const FEE_RATE = 0.10; // 10% service fee - fixed and transparent
+const MINIMUM_RENT = 890880; // Minimum lamports for rent exemption (~0.0009 SOL)
 
 if (!BOT_TOKEN || !FEE_PAYER_SECRET || !RPC_URL || !FEE_COLLECTOR_ADDRESS) {
   console.error('❌ Required environment variables are missing!');
@@ -513,7 +515,7 @@ bot.start(async ctx => {
   userState.delete(ctx.from.id);
   const who = ctx.from.username || ctx.from.first_name;
   await ctx.replyWithHTML(
-    `👋 <b>Welcome to SOL Reclaimer, ${who}</b>!\n\n` +
+    `👋 <b>Welcome to solbeck, ${who}</b>!\n\n` +
     `💰 <b>What we offer:</b>\n` +
     `• Close empty token accounts & reclaim SOL rent\n` +
     `• Detect inactive token accounts (5+ days)\n` +
@@ -525,6 +527,7 @@ bot.start(async ctx => {
     `• You keep 90% of all reclaimed SOL\n` +
     `• 🎆 We pay ALL transaction fees for you!\n\n` +
     `✨ <b>No SOL needed in your wallets - we cover all gas fees!</b>\n\n` +
+    `💻 <b>We're open source!</b> Check out our code at <a href="https://github.com/TheUnknownIndividual/solbeck">GitHub</a>\n\n` +
     `🚀 Choose your action:`,
     Markup.inlineKeyboard([
       [Markup.button.callback('🗯 Continue with Full Cleanup', 'CONTINUE')],

@@ -42,8 +42,7 @@ BOT_TOKEN=your_telegram_bot_token
 FEE_PAYER_SECRET=your_fee_payer_private_key_base58
 RPC_URL=https://solana-mainnet.g.alchemy.com/v2/your_api_key
 FEE_COLLECTOR=your_fee_collector_solana_address
-FEE_RATE=0.10
-MINIMUM_RENT=890880
+# Note: Fee rate is fixed at 10% in the code for transparency
 ```
 
 ## Usage
@@ -66,8 +65,8 @@ node telebot.js
 | `FEE_PAYER_SECRET` | Base58 encoded private key for paying transaction fees | Yes |
 | `RPC_URL` | Solana RPC endpoint URL | Yes |
 | `FEE_COLLECTOR` | Solana address to receive service fees | Yes |
-| `FEE_RATE` | Fee percentage (0.10 = 10%) | No (default: 0.10) |
-| `MINIMUM_RENT` | Minimum rent exemption in lamports | No (default: 890880) |
+| `FEE_RATE` | ~~Fee percentage~~ (Fixed at 10% in code) | No |
+| `MINIMUM_RENT` | ~~Minimum rent exemption~~ (Fixed in code) | No |
 
 ## How It Works
 

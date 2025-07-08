@@ -678,15 +678,18 @@ bot.start(async ctx => {
     
     console.log(`🎉 Referral user detected: ${ctx.from.id} from ${referralConfig.name}`);
     
-    referralMessage = `🎉 <b>Welcome ${referralConfig.name} member!</b>\n` +
-      `🎁 <b>SPECIAL OFFER: Process your first ${referralConfig.freeWallets} wallets completely FREE!</b>\n` +
-      `✨ No service fees will be charged for your first ${referralConfig.freeWallets} wallet operations.\n\n`;
+    referralMessage = `🎉🎁 <b>WELCOME ${referralConfig.name.toUpperCase()} MEMBER!</b> 🎁🎉\n\n` +
+      `⭐ <b>EXCLUSIVE BENEFIT UNLOCKED:</b> ⭐\n` +
+      `🆓 <b>FREE WALLET CLEANING FOR YOUR FIRST ${referralConfig.freeWallets} WALLETS!</b>\n` +
+      `💯 <b>ZERO SERVICE FEES - YOU KEEP 100% OF RECLAIMED SOL!</b>\n\n` +
+      `🔥 This means you can clean up to ${referralConfig.freeWallets} different wallets without paying any service fees at all!\n\n`;
     
-    feeMessage = `🎯 <b>Your Special Referral Benefits:</b>\n` +
-      `• ~0.002 SOL per closed account\n` +
-      `• 🎁 <b>FREE service for your first ${referralConfig.freeWallets} wallets (0% fee)</b>\n` +
-      `• After ${referralConfig.freeWallets} wallets: standard 10% service fee applies\n` +
-      `• You keep 100% of reclaimed SOL for first ${referralConfig.freeWallets} wallets!\n\n`;
+    feeMessage = `💎 <b>YOUR EXCLUSIVE ${referralConfig.name.toUpperCase()} BENEFITS:</b>\n` +
+      `🆓 <b>FIRST ${referralConfig.freeWallets} WALLETS: COMPLETELY FREE (0% fee)</b>\n` +
+      `💰 ~0.002 SOL reclaimed per closed token account\n` +
+      `💯 You keep 100% of ALL reclaimed SOL for your first ${referralConfig.freeWallets} wallets!\n` +
+      `🔄 After ${referralConfig.freeWallets} wallets: standard 10% service fee applies\n\n` +
+      `📊 <b>Free Wallet Counter: ${referralConfig.freeWallets}/${referralConfig.freeWallets} remaining</b>\n\n`;
   }
   
   const who = ctx.from.username || ctx.from.first_name;

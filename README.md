@@ -1,4 +1,4 @@
-# solbeck bot
+# solbeck
 
 A Telegram bot that helps Solana users reclaim SOL from empty token accounts and burn unwanted tokens.
 

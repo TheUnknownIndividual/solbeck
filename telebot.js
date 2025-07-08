@@ -54,15 +54,50 @@ console.log('🌐 RPC URL:', RPC_URL);
 // per-user in-memory state
 const userState = new Map();
 
+// Referral tracking
+const referralUsers = new Map(); // userId -> { referralCode, walletCount, isFeeless }
+const REFERRAL_CODES = {
+  'magnumcommunity': {
+    name: 'Magnum Community',
+    freeWallets: 10,
+    description: 'Magnum Community members get feeless service for first 10 wallets!'
+  }
+  // Add more referral codes here as needed
+};
+
+// Check if user is eligible for feeless service
+function isUserFeeless(userId, walletCount) {
+  const referralInfo = referralUsers.get(userId);
+  if (!referralInfo) return false;
+  
+  const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
+  if (!referralConfig) return false;
+  
+  // Check if user is still within their free wallet limit
+  return referralInfo.walletCount + walletCount <= referralConfig.freeWallets;
+}
+
+// Update user wallet count for referral tracking
+function updateReferralWalletCount(userId, walletCount) {
+  const referralInfo = referralUsers.get(userId);
+  if (referralInfo) {
+    referralInfo.walletCount += walletCount;
+    referralUsers.set(userId, referralInfo);
+  }
+}
+
 // Calculate fee amounts and create fee collection instructions
-function calculateFeeAndCreateInstructions(totalReclaimedLamports, destinationPubkey) {
-  const feeLamports = Math.floor(totalReclaimedLamports * FEE_RATE);
+function calculateFeeAndCreateInstructions(totalReclaimedLamports, destinationPubkey, userId = null, walletCount = 0) {
+  // Check if user is eligible for feeless service
+  const isFeeless = userId && isUserFeeless(userId, walletCount);
+  
+  const feeLamports = isFeeless ? 0 : Math.floor(totalReclaimedLamports * FEE_RATE);
   const userLamports = totalReclaimedLamports - feeLamports;
   
   const instructions = [];
   
-  // Only create fee transfer if fee amount is meaningful (> 1000 lamports)
-  if (feeLamports > 1000) {
+  // Only create fee transfer if fee amount is meaningful (> 1000 lamports) and not feeless
+  if (feeLamports > 1000 && !isFeeless) {
     instructions.push(
       SystemProgram.transfer({
         fromPubkey: destinationPubkey,
@@ -77,7 +112,8 @@ function calculateFeeAndCreateInstructions(totalReclaimedLamports, destinationPu
     userLamports,
     feeInstructions: instructions,
     feeAmount: feeLamports / 1e9, // Convert to SOL
-    userAmount: userLamports / 1e9 // Convert to SOL
+    userAmount: userLamports / 1e9, // Convert to SOL
+    isFeeless
   };
 }
 
@@ -121,14 +157,20 @@ async function getTokenInfo(conn, mintAddress) {
     // Try to get token metadata from common registries
     let symbol = await getTokenSymbol(conn, mintAddress);
     
+    // Better fallback - show "Unknown Token" instead of truncated address
+    if (!symbol) {
+      symbol = `Unknown (${mintAddress.slice(0, 4)}...${mintAddress.slice(-4)})`;
+    }
+    
     return {
-      symbol: symbol || (mintAddress.slice(0, 8) + '...'),
+      symbol: symbol,
       decimals: mint.decimals,
       supply: mint.supply.toString()
     };
   } catch (error) {
+    console.error(`Error getting token info for ${mintAddress}:`, error.message);
     return {
-      symbol: mintAddress.slice(0, 8) + '...',
+      symbol: `Unknown (${mintAddress.slice(0, 4)}...${mintAddress.slice(-4)})`,
       decimals: 9,
       supply: 'Unknown'
     };
@@ -138,41 +180,96 @@ async function getTokenInfo(conn, mintAddress) {
 // Fetch token symbol from metadata or token list
 async function getTokenSymbol(conn, mintAddress) {
   try {
-    // Try to fetch from Jupiter token list API (cached)
-    const response = await fetch('https://token.jup.ag/strict');
-    const tokenList = await response.json();
+    console.log(`🔍 Looking up symbol for token: ${mintAddress}`);
     
-    const token = tokenList.find(t => t.address === mintAddress);
-    if (token && token.symbol) {
-      return '$' + token.symbol;
-    }
+    // Try multiple token registry sources
+    const sources = [
+      // Jupiter strict list (verified tokens)
+      {
+        name: 'Jupiter Strict',
+        url: 'https://token.jup.ag/strict',
+        field: 'address'
+      },
+      // Jupiter all tokens
+      {
+        name: 'Jupiter All',
+        url: 'https://token.jup.ag/all',
+        field: 'address'
+      }
+    ];
     
-    // Fallback: check for metadata account
-    const [metadataPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from('metadata'),
-        new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
-        new PublicKey(mintAddress).toBuffer(),
-      ],
-      new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
-    );
-    
-    const accountInfo = await conn.getAccountInfo(metadataPDA);
-    if (accountInfo) {
-      // Parse metadata (simplified)
-      const data = accountInfo.data;
-      // Extract symbol from metadata (this is a simplified extraction)
-      const symbolStart = data.indexOf(Buffer.from('symbol')) + 6;
-      if (symbolStart > 5) {
-        const symbolLength = data[symbolStart];
-        const symbol = data.slice(symbolStart + 4, symbolStart + 4 + symbolLength).toString();
-        return symbol ? '$' + symbol.replace(/\0/g, '') : null;
+    for (const source of sources) {
+      try {
+        console.log(`  📡 Trying ${source.name} API...`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
+        const response = await fetch(source.url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const tokenList = await response.json();
+          const token = tokenList.find(t => t[source.field] === mintAddress);
+          if (token && token.symbol) {
+            console.log(`  ✅ Found symbol: ${token.symbol} from ${source.name}`);
+            return token.symbol;
+          }
+        }
+      } catch (apiError) {
+        console.log(`  ❌ ${source.name} failed:`, apiError.message);
+        continue;
       }
     }
     
+    // Fallback: check for metadata account
+    console.log(`  🔍 Checking on-chain metadata...`);
+    try {
+      const [metadataPDA] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from('metadata'),
+          new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s').toBuffer(),
+          new PublicKey(mintAddress).toBuffer(),
+        ],
+        new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s')
+      );
+      
+      const accountInfo = await conn.getAccountInfo(metadataPDA);
+      if (accountInfo && accountInfo.data) {
+        // Try to parse Metaplex metadata
+        const data = accountInfo.data;
+        
+        // Look for the symbol in the metadata structure
+        // Metaplex metadata has a specific structure, let's try to parse it properly
+        let offset = 1; // Skip first byte (key)
+        offset += 32; // Skip update authority
+        offset += 32; // Skip mint
+        
+        // Name length
+        const nameLen = data.readUInt32LE(offset);
+        offset += 4;
+        offset += nameLen; // Skip name
+        
+        // Symbol length  
+        const symbolLen = data.readUInt32LE(offset);
+        offset += 4;
+        
+        if (symbolLen > 0 && symbolLen < 20) { // Reasonable symbol length
+          const symbolBytes = data.slice(offset, offset + symbolLen);
+          const symbol = symbolBytes.toString('utf8').replace(/\0/g, '').trim();
+          if (symbol && symbol.length > 0) {
+            console.log(`  ✅ Found on-chain symbol: ${symbol}`);
+            return symbol;
+          }
+        }
+      }
+    } catch (metadataError) {
+      console.log(`  ❌ Metadata parsing failed:`, metadataError.message);
+    }
+    
+    console.log(`  ❌ No symbol found for ${mintAddress}`);
     return null;
   } catch (error) {
-    console.error(`Error fetching token symbol for ${mintAddress}:`, error.message);
+    console.error(`❌ Error fetching token symbol for ${mintAddress}:`, error.message);
     return null;
   }
 }
@@ -365,8 +462,53 @@ async function processSelectedTokens(privateKeyStrings, consolidateTo, selectedT
   return burnJobs.length;
 }
 
+// Process selected tokens for burning with fee collection
+async function processSelectedTokensWithFees(privateKeyStrings, consolidateTo, selectedTokens, allTokens, userId = null) {
+  const burnCount = await processSelectedTokens(privateKeyStrings, consolidateTo, selectedTokens, allTokens);
+  
+  // Collect fees from burned token accounts
+  if (burnCount > 0) {
+    console.log('\n💰 Collecting fees from burned token accounts...');
+    const conn = new Connection(RPC_URL, 'confirmed');
+    const rentDestination = consolidateTo ? new PublicKey(consolidateTo) : Keypair.fromSecretKey(bs58.decode(privateKeyStrings[0])).publicKey;
+    const estimatedRentFromBurns = burnCount * 0.00203928 * 1e9; // Estimated rent in lamports
+    
+    if (estimatedRentFromBurns > 1000) {
+      const feeCalc = calculateFeeAndCreateInstructions(estimatedRentFromBurns, rentDestination, userId, privateKeyStrings.length);
+      
+      if (feeCalc.feeInstructions.length > 0) {
+        try {
+          console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%) from burned tokens`);
+          
+          const { blockhash } = await conn.getLatestBlockhash('confirmed');
+          const feeMessage = new TransactionMessage({
+            payerKey: FEE_PAYER.publicKey,
+            recentBlockhash: blockhash,
+            instructions: feeCalc.feeInstructions,
+          }).compileToV0Message();
+          
+          const feeTx = new VersionedTransaction(feeMessage);
+          feeTx.sign([FEE_PAYER]);
+          
+          const feeSig = await conn.sendRawTransaction(feeTx.serialize());
+          await confirmByPolling(conn, feeSig);
+          
+          console.log(`✅ Fee collection successful from burned tokens: ${feeSig}`);
+          return feeCalc.feeLamports / 1e9; // Return fee amount in SOL
+        } catch (feeError) {
+          console.error('⚠️ Fee collection failed for burned tokens (continuing with operation):', feeError.message);
+        }
+      } else if (feeCalc.isFeeless) {
+        console.log(`🎁 Feeless service applied for referral user - no fees collected from burned tokens`);
+      }
+    }
+  }
+  
+  return 0; // No fees collected
+}
+
 // The core close + reclaim logic for empty accounts
-async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccounts) {
+async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccounts, userId = null) {
   console.log('\n🚀 Processing empty token accounts...');
   
   if (emptyAccounts.length === 0) {
@@ -466,16 +608,16 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
     }
   }
   
-  // Collect fees from consolidated destination
+  // Collect fees from the rent destination (regardless of consolidation preference)
   const feeDestination = consolidateTo ? new PublicKey(consolidateTo) : owners[0].publicKey;
   const estimatedRentReclaimed = jobs.length * 0.00203928 * 1e9; // Estimated rent in lamports
   
-  if (consolidateTo && estimatedRentReclaimed > 1000) {
-    const feeCalc = calculateFeeAndCreateInstructions(estimatedRentReclaimed, feeDestination);
+  if (estimatedRentReclaimed > 1000) {
+    const feeCalc = calculateFeeAndCreateInstructions(estimatedRentReclaimed, feeDestination, userId, privateKeyStrings.length);
     
     if (feeCalc.feeInstructions.length > 0) {
       try {
-        console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%)`);
+        console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%) from empty accounts`);
         
         const { blockhash } = await conn.getLatestBlockhash('confirmed');
         const feeMessage = new TransactionMessage({
@@ -491,10 +633,12 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
         await confirmByPolling(conn, feeSig);
         
         totalFeesCollected = feeCalc.feeLamports;
-        console.log(`✅ Fee collection successful: ${feeSig}`);
+        console.log(`✅ Fee collection successful from empty accounts: ${feeSig}`);
       } catch (feeError) {
-        console.error('⚠️ Fee collection failed (continuing with operation):', feeError.message);
+        console.error('⚠️ Fee collection failed from empty accounts (continuing with operation):', feeError.message);
       }
+    } else if (feeCalc.isFeeless) {
+      console.log(`🎁 Feeless service applied for referral user - no fees collected from empty accounts`);
     }
   }
   
@@ -513,20 +657,49 @@ const bot = new Telegraf(BOT_TOKEN);
 bot.start(async ctx => {
   console.log(`👤 User started bot: ${ctx.from.username || ctx.from.first_name} (ID: ${ctx.from.id})`);
   userState.delete(ctx.from.id);
+  
+  // Check for referral code in start parameter
+  const startPayload = ctx.startPayload;
+  let referralMessage = '';
+  let feeMessage = `🎯 <b>Rewards & Fees:</b>\n` +
+    `• ~0.002 SOL per closed account\n` +
+    `• We take a 10% service fee from reclaimed SOL\n` +
+    `• You keep 90% of all reclaimed SOL\n\n`;
+  
+  if (startPayload && REFERRAL_CODES[startPayload]) {
+    const referralConfig = REFERRAL_CODES[startPayload];
+    
+    // Track referral user
+    referralUsers.set(ctx.from.id, {
+      referralCode: startPayload,
+      walletCount: 0,
+      joinedAt: new Date().toISOString()
+    });
+    
+    console.log(`🎉 Referral user detected: ${ctx.from.id} from ${referralConfig.name}`);
+    
+    referralMessage = `🎉 <b>Welcome ${referralConfig.name} member!</b>\n` +
+      `🎁 <b>SPECIAL OFFER: Process your first ${referralConfig.freeWallets} wallets completely FREE!</b>\n` +
+      `✨ No service fees will be charged for your first ${referralConfig.freeWallets} wallet operations.\n\n`;
+    
+    feeMessage = `🎯 <b>Your Special Referral Benefits:</b>\n` +
+      `• ~0.002 SOL per closed account\n` +
+      `• 🎁 <b>FREE service for your first ${referralConfig.freeWallets} wallets (0% fee)</b>\n` +
+      `• After ${referralConfig.freeWallets} wallets: standard 10% service fee applies\n` +
+      `• You keep 100% of reclaimed SOL for first ${referralConfig.freeWallets} wallets!\n\n`;
+  }
+  
   const who = ctx.from.username || ctx.from.first_name;
   await ctx.replyWithHTML(
     `👋 <b>Welcome to solbeck, ${who}</b>!\n\n` +
+    referralMessage +
     `💰 <b>What we offer:</b>\n` +
     `• Close empty token accounts & reclaim SOL rent\n` +
     `• Detect inactive token accounts (5+ days)\n` +
     `• Optimize wallet storage automatically\n` +
     `• Safe & secure in-memory processing\n\n` +
-    `🎯 <b>Rewards & Fees:</b>\n` +
-    `• ~0.002 SOL per closed account\n` +
-    `• We take a 10% service fee from reclaimed SOL\n` +
-    `• You keep 90% of all reclaimed SOL\n` +
-    `• 🎆 We pay ALL transaction fees for you!\n\n` +
-    `✨ <b>No SOL needed in your wallets - we cover all gas fees!</b>\n\n` +
+    feeMessage +
+    `🎆 <b>No SOL needed in your wallets - we cover ALL gas fees!</b>\n\n` +
     `💻 <b>We're open source!</b> Check out our code at <a href="https://github.com/TheUnknownIndividual/solbeck">GitHub</a>\n\n` +
     `🚀 Choose your action:`,
     {
@@ -621,6 +794,207 @@ bot.action('BURN_START_FROM_MAIN', async ctx => {
     { reply_markup: { force_reply: true } }
   );
   userState.set(ctx.from.id, { stage: 'BURN_AWAITING_KEYS' });
+});
+
+// Command handlers - must be before message handler
+bot.command('stats', async ctx => {
+  console.log(`📊 Stats requested by user ${ctx.from.id}`);
+  try {
+    console.log('📊 Reading stats directory...');
+    const files = await fs.readdir(STATS_DIR);
+    const statsFiles = files.filter(f => f.endsWith('.json'));
+    console.log(`📊 Found ${statsFiles.length} stats files`);
+    
+    // Initialize comprehensive stats
+    const stats = {
+      totalUsers: new Set(),
+      totalSol: 0,
+      totalUsdValue: 0,
+      totalFeesCollected: 0,
+      totalFeeUsdValue: 0,
+      totalGrossSol: 0,
+      totalWallets: 0,
+      totalBurnedTokens: 0,
+      totalClosedAccounts: 0,
+      totalEmptyAccountsClosed: 0,
+      burnOnlyOperations: 0,
+      fullCleanupOperations: 0,
+      mostRecentOperation: null,
+      topUser: { username: '', sol: 0 },
+      uniqueTokenSymbols: new Set(),
+      operationsByDay: new Map()
+    };
+    
+    // Process each stats file
+    for (const file of statsFiles) {
+      try {
+        const data = JSON.parse(await fs.readFile(path.join(STATS_DIR, file), 'utf8'));
+        
+        // Track unique users
+        stats.totalUsers.add(data.userId);
+        
+        // Accumulate totals
+        stats.totalSol += data.earnedSol || 0; // Net SOL to users
+        stats.totalUsdValue += data.usdValue || 0; // Net USD to users
+        stats.totalFeesCollected += data.feesCollected || 0;
+        stats.totalFeeUsdValue += data.feeUsdValue || 0;
+        stats.totalGrossSol += data.grossSol || data.earnedSol || 0; // Total before fees
+        stats.totalWallets += data.wallets || 0;
+        stats.totalBurnedTokens += data.burnedTokens || 0;
+        stats.totalClosedAccounts += data.closedAccounts || 0;
+        stats.totalEmptyAccountsClosed += data.emptyAccountsClosed || 0;
+        
+        // Track operation types
+        if (data.burnOnly) {
+          stats.burnOnlyOperations++;
+        } else {
+          stats.fullCleanupOperations++;
+        }
+        
+        // Track most recent operation
+        if (!stats.mostRecentOperation || new Date(data.timestamp) > new Date(stats.mostRecentOperation.timestamp)) {
+          stats.mostRecentOperation = data;
+        }
+        
+        // Track top user
+        if ((data.earnedSol || 0) > stats.topUser.sol) {
+          stats.topUser = {
+            username: data.username || 'Anonymous',
+            sol: data.earnedSol || 0,
+            usdValue: data.usdValue || 0
+          };
+        }
+        
+        // Track unique token symbols
+        if (data.burnedTokenDetails) {
+          data.burnedTokenDetails.forEach(token => {
+            if (token.symbol) {
+              stats.uniqueTokenSymbols.add(token.symbol);
+            }
+          });
+        }
+        
+        // Track operations by day
+        if (data.timestamp) {
+          const date = new Date(data.timestamp).toISOString().split('T')[0];
+          stats.operationsByDay.set(date, (stats.operationsByDay.get(date) || 0) + 1);
+        }
+      } catch (error) {
+        console.error(`Error processing stats file ${file}:`, error.message);
+      }
+    }
+    
+    // Get current SOL price for USD conversion
+    console.log('📊 Fetching SOL price...');
+    const solPrice = await getSolToUsdRate();
+    console.log(`📊 SOL price: $${solPrice}`);
+    const currentUsdValue = stats.totalSol * solPrice;
+    
+    // Calculate average SOL per user
+    const avgSolPerUser = stats.totalUsers.size > 0 ? stats.totalSol / stats.totalUsers.size : 0;
+    const avgWalletsPerUser = stats.totalUsers.size > 0 ? stats.totalWallets / stats.totalUsers.size : 0;
+    
+    // Get recent activity (last 7 days)
+    const last7Days = Array.from({length: 7}, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date.toISOString().split('T')[0];
+    });
+    const recentActivity = last7Days.reduce((sum, date) => sum + (stats.operationsByDay.get(date) || 0), 0);
+    
+    // Build comprehensive stats message
+    let message = `📊 <b>Comprehensive Bot Statistics</b>\n\n`;
+    
+    // Core metrics
+    message += `👥 <b>Users & Operations</b>\n`;
+    message += `• Total Unique Users: ${stats.totalUsers.size}\n`;
+    message += `• Total Operations: ${stats.burnOnlyOperations + stats.fullCleanupOperations}\n`;
+    message += `• Burn-Only Operations: ${stats.burnOnlyOperations}\n`;
+    message += `• Full Cleanup Operations: ${stats.fullCleanupOperations}\n`;
+    message += `• Recent Activity (7 days): ${recentActivity} operations\n\n`;
+    
+    // Financial metrics
+    message += `💰 <b>Financial Impact</b>\n`;
+    message += `• Total SOL to Users: ${stats.totalSol.toFixed(6)} SOL\n`;
+    message += `• Total Fees Collected: ${stats.totalFeesCollected.toFixed(6)} SOL\n`;
+    message += `• Total SOL Processed: ${stats.totalGrossSol.toFixed(6)} SOL\n`;
+    message += `• Current User USD Value: ~$${currentUsdValue.toFixed(2)}\n`;
+    message += `• Historical User USD: ~$${stats.totalUsdValue.toFixed(2)}\n`;
+    message += `• Total Fee USD: ~$${stats.totalFeeUsdValue.toFixed(2)}\n`;
+    message += `• Average SOL per User: ${avgSolPerUser.toFixed(6)} SOL\n\n`;
+    
+    // Wallet & account metrics
+    message += `🏦 <b>Wallet & Account Metrics</b>\n`;
+    message += `• Total Wallets Processed: ${stats.totalWallets}\n`;
+    message += `• Average Wallets per User: ${avgWalletsPerUser.toFixed(1)}\n`;
+    message += `• Total Accounts Closed: ${stats.totalClosedAccounts}\n`;
+    message += `• Empty Accounts Closed: ${stats.totalEmptyAccountsClosed}\n`;
+    message += `• Token Accounts Burned: ${stats.totalBurnedTokens}\n\n`;
+    
+    // Token metrics
+    message += `🔥 <b>Token Metrics</b>\n`;
+    message += `• Total Tokens Burned: ${stats.totalBurnedTokens}\n`;
+    message += `• Unique Token Types: ${stats.uniqueTokenSymbols.size}\n\n`;
+    
+    // Top performer
+    if (stats.topUser.sol > 0) {
+      message += `🏆 <b>Top User</b>\n`;
+      message += `• Username: ${stats.topUser.username}\n`;
+      message += `• SOL Reclaimed: ${stats.topUser.sol.toFixed(6)} SOL\n`;
+      if (stats.topUser.usdValue > 0) {
+        message += `• USD Value: ~$${stats.topUser.usdValue.toFixed(2)}\n`;
+      }
+      message += `\n`;
+    }
+    
+    // Recent activity
+    if (stats.mostRecentOperation) {
+      const timeDiff = Date.now() - new Date(stats.mostRecentOperation.timestamp).getTime();
+      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
+      const timeAgoText = hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.floor(hoursAgo / 24)}d ago`;
+      
+      message += `⏰ <b>Recent Activity</b>\n`;
+      message += `• Last Operation: ${timeAgoText}\n`;
+      message += `• By: ${stats.mostRecentOperation.username || 'Anonymous'}\n`;
+      message += `• Reclaimed: ${(stats.mostRecentOperation.earnedSol || 0).toFixed(6)} SOL\n`;
+    }
+    
+    console.log('📊 Sending stats message...');
+    await ctx.replyWithHTML(message);
+    console.log('✅ Stats sent successfully');
+    
+  } catch (error) {
+    console.error('❌ Error getting comprehensive stats:', error.message);
+    console.error('Stack trace:', error.stack);
+    await ctx.reply('❌ Error retrieving statistics. Please try again later.');
+  }
+});
+
+bot.command('burntokens', async ctx => {
+  console.log(`🔥 Burn tokens command requested by user ${ctx.from.id}`);
+  userState.delete(ctx.from.id);
+  await ctx.replyWithHTML(
+    `🔥 <b>Burn Leftover Tokens</b>\n\n` +
+    `💡 <b>What this does:</b>\n` +
+    `• Scans your wallets for token accounts with balances\n` +
+    `• Identifies inactive tokens (no transactions for 5+ days)\n` +
+    `• Allows you to permanently burn unwanted tokens\n` +
+    `• Closes the accounts to reclaim SOL rent\n\n` +
+    `💰 <b>Rewards & Fees:</b>\n` +
+    `• ~0.002039 SOL per token account closed\n` +
+    `• We take a 10% service fee from reclaimed SOL\n` +
+    `• You keep 90% of all reclaimed SOL\n` +
+    `• 🎆 We pay ALL transaction fees for you!\n\n` +
+    `⚠️ <b>Important:</b>\n` +
+    `• Token burning is PERMANENT and irreversible\n` +
+    `• Only burn tokens you don't need\n` +
+    `• No SOL needed in your wallets for gas fees\n\n` +
+    `🔑 Ready to connect your wallet?`,
+    Markup.inlineKeyboard([
+      [Markup.button.callback('🔥 Start Token Burning', 'BURN_START_FROM_MAIN')],
+      [Markup.button.callback('⬅️ Back to Main Menu', 'BACK_TO_START')]
+    ])
+  );
 });
 
 // 3) capture keys
@@ -1254,19 +1628,37 @@ async function runProcessing(ctx, selectedTokens = []) {
     let reclaimedSol = 0;
     let lastTxSig = null;
     
+    let burnedTokenDetails = [];
+    
     // Process selected tokens for burning
     if (selectedTokens.length > 0) {
       console.log(`🔥 Burning ${selectedTokens.length} selected tokens`);
+      // Get selected tokens details for display
+      burnedTokenDetails = selectedTokens.map(index => accountsWithBalances[index]);
       burnedTokens = await processSelectedTokens(keys, payoutAddr, selectedTokens, accountsWithBalances);
     }
     
     // Process empty accounts
     if (emptyAccounts.length > 0) {
       console.log(`🧹 Closing ${emptyAccounts.length} empty accounts`);
-      const result = await processEmptyAccounts(keys, payoutAddr, emptyAccounts);
+      const result = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
       closedAccounts = result.closed;
       reclaimedSol = result.reclaimedSol;
       lastTxSig = result.batchTxSig;
+    }
+    
+    // Update referral wallet count
+    updateReferralWalletCount(ctx.from.id, keys.length);
+    
+    // Calculate total SOL reclaimed (from both burned tokens and empty accounts)
+    const tokenAccountsSol = burnedTokens * 0.00203928; // Approximate rent per token account
+    const totalReclaimedSol = tokenAccountsSol + reclaimedSol;
+    
+    // Get USD value if we have SOL to show
+    let usdValue = 0;
+    if (totalReclaimedSol > 0) {
+      const solToUsd = await getSolToUsdRate();
+      usdValue = totalReclaimedSol * solToUsd;
     }
     
     await ctx.deleteMessage(sentMsg.message_id);
@@ -1274,13 +1666,49 @@ async function runProcessing(ctx, selectedTokens = []) {
     if (burnedTokens === 0 && closedAccounts === 0) {
       await ctx.reply('ℹ️ No actions were taken. Your wallets are already optimized!');
     } else {
-      let message = `✅ <b>Success!</b>\n`;
-      if (burnedTokens > 0) message += `🔥 Burned ${burnedTokens} tokens\n`;
-      if (closedAccounts > 0) message += `🗂️ Closed ${closedAccounts} empty accounts\n`;
-      if (reclaimedSol > 0) message += `💰 Reclaimed ${reclaimedSol.toFixed(6)} SOL\n`;
+      let message = `✅ <b>Success!</b>\n\n`;
+      
+      if (burnedTokens > 0) {
+        message += `🔥 <b>Burned ${burnedTokens} tokens:</b>\n`;
+        burnedTokenDetails.forEach(token => {
+          message += `• ${token.displayName}\n`;
+        });
+        message += `\n`;
+      }
+      
+      if (closedAccounts > 0) {
+        message += `🗂️ Closed ${closedAccounts} empty accounts\n`;
+      }
+      
+      if (totalReclaimedSol > 0) {
+        message += `💰 <b>Total Reclaimed:</b> ${totalReclaimedSol.toFixed(6)} SOL`;
+        if (usdValue > 0) {
+          message += ` (~$${usdValue.toFixed(2)} USD)`;
+        }
+        message += `\n`;
+        
+        if (burnedTokens > 0 && closedAccounts > 0) {
+          message += `  └ From ${burnedTokens} burned tokens: ~${tokenAccountsSol.toFixed(6)} SOL\n`;
+          message += `  └ From ${closedAccounts} empty accounts: ${reclaimedSol.toFixed(6)} SOL\n`;
+        }
+      }
+      
+      message += `\n👛 Cleaned up ${keys.length} wallet(s)!`;
+      
+      // Add referral status message
+      const referralInfo = referralUsers.get(ctx.from.id);
+      if (referralInfo) {
+        const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
+        const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
+        if (remainingFreeWallets > 0) {
+          message += `\n\n🎁 <b>${referralConfig.name} member:</b> ${remainingFreeWallets} feeless wallet${remainingFreeWallets > 1 ? 's' : ''} remaining!`;
+        } else {
+          message += `\n\n🎁 <b>${referralConfig.name} member:</b> Feeless quota used. Standard 10% fee applies to future operations.`;
+        }
+      }
       
       if (lastTxSig) {
-        message += `\n<a href="https://solscan.io/tx/${lastTxSig}">View on Solscan</a>`;
+        message += `\n\n<a href="https://solscan.io/tx/${lastTxSig}">View on Solscan</a>`;
       }
       
       await ctx.replyWithHTML(message, { disable_web_page_preview: true });
@@ -1289,10 +1717,22 @@ async function runProcessing(ctx, selectedTokens = []) {
       const stats = {
         userId: ctx.from.id,
         username: ctx.from.username || ctx.from.first_name,
-        earnedSol: reclaimedSol,
+        earnedSol: totalReclaimedSol,
+        usdValue: usdValue,
         wallets: keys.length,
         burnedTokens,
         closedAccounts,
+        burnedTokenDetails: burnedTokenDetails.map(t => ({
+          symbol: t.tokenInfo.symbol,
+          amount: t.actualBalance,
+          displayName: t.displayName
+        })),
+        referral: referralInfo ? {
+          code: referralInfo.referralCode,
+          name: REFERRAL_CODES[referralInfo.referralCode]?.name,
+          isFeeless: isUserFeeless(ctx.from.id, keys.length),
+          totalWalletsProcessed: referralInfo.walletCount + keys.length
+        } : null,
         timestamp: new Date().toISOString(),
       };
       await fs.writeFile(
@@ -1330,12 +1770,23 @@ async function runProcessing(ctx, selectedTokens = []) {
 // Get SOL to USD conversion rate
 async function getSolToUsdRate() {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
     const data = await response.json();
     return data.solana?.usd || 0;
   } catch (error) {
     console.error('Error fetching SOL/USD rate:', error.message);
-    return 0;
+    return 0; // Return 0 if API fails
   }
 }
 
@@ -1370,11 +1821,14 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     let totalFeesCollected = 0;
     if (emptyAccounts && emptyAccounts.length > 0) {
       console.log(`🧹 Automatically processing ${emptyAccounts.length} empty accounts`);
-      const emptyResult = await processEmptyAccounts(keys, payoutAddr, emptyAccounts);
+      const emptyResult = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
       closedEmptyAccounts = emptyResult.closed;
       emptyAccountsSol = emptyResult.reclaimedSol;
       totalFeesCollected = emptyResult.feesCollected || 0;
     }
+    
+    // Update referral wallet count
+    updateReferralWalletCount(ctx.from.id, keys.length);
     
     // Calculate total reclaimed SOL and fees
     const tokenAccountsSol = burnedTokens * 0.00203928; // Approximate rent per token account
@@ -1422,6 +1876,18 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     message += `\n🎉 All accounts have been cleaned and your net SOL has been refunded to your destination address!\n`;
     message += `💳 <b>No transaction fees charged to you - we covered all gas costs!</b>`;
     
+    // Add referral status message
+    const referralInfo = referralUsers.get(ctx.from.id);
+    if (referralInfo) {
+      const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
+      const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
+      if (remainingFreeWallets > 0) {
+        message += `\n\n🎁 <b>${referralConfig.name} member:</b> ${remainingFreeWallets} feeless wallet${remainingFreeWallets > 1 ? 's' : ''} remaining!`;
+      } else {
+        message += `\n\n🎁 <b>${referralConfig.name} member:</b> Feeless quota used. Standard 10% fee applies to future operations.`;
+      }
+    }
+    
     await ctx.replyWithHTML(message);
     
     // Record comprehensive burn stats
@@ -1443,6 +1909,12 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
         amount: t.actualBalance,
         displayName: t.displayName
       })),
+      referral: referralInfo ? {
+        code: referralInfo.referralCode,
+        name: REFERRAL_CODES[referralInfo.referralCode]?.name,
+        isFeeless: isUserFeeless(ctx.from.id, keys.length),
+        totalWalletsProcessed: referralInfo.walletCount + keys.length
+      } : null,
       burnOnly: true,
       feeRate: FEE_RATE,
       timestamp: new Date().toISOString(),
@@ -1478,22 +1950,6 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
   }
 }
 
-bot.command('burntokens', async ctx => {
-  console.log(`🔥 Burn tokens command requested by user ${ctx.from.id}`);
-  userState.delete(ctx.from.id);
-  const who = ctx.from.username || ctx.from.first_name;
-  await ctx.replyWithHTML(
-    `🔥 <b>Token Burning Tool</b>\n\n` +
-    `Welcome ${who}! This tool will scan your wallets for tokens and let you burn selected ones.\n\n` +
-    `💡 <b>Why burn tokens?</b>\n` +
-    `• Close token accounts to reclaim SOL rent\n` +
-    `• Clean up your wallet from unwanted tokens\n` +
-    `• Optimize your wallet storage\n\n` +
-    `⚠️ <b>Warning:</b> Burning tokens is permanent and irreversible!`,
-    Markup.inlineKeyboard([Markup.button.callback('🔥 Start Burning', 'BURN_START')])
-  );
-});
-
 bot.action('BURN_START', async ctx => {
   console.log(`🔥 User ${ctx.from.id} started burn process`);
   await ctx.deleteMessage();
@@ -1506,172 +1962,6 @@ bot.action('BURN_START', async ctx => {
   userState.set(ctx.from.id, { stage: 'BURN_AWAITING_KEYS' });
 });
 
-bot.command('stats', async ctx => {
-  console.log(`📊 Stats requested by user ${ctx.from.id}`);
-  try {
-    const files = await fs.readdir(STATS_DIR);
-    const statsFiles = files.filter(f => f.endsWith('.json'));
-    
-    // Initialize comprehensive stats
-    const stats = {
-      totalUsers: new Set(),
-      totalSol: 0,
-      totalUsdValue: 0,
-      totalFeesCollected: 0,
-      totalFeeUsdValue: 0,
-      totalGrossSol: 0,
-      totalWallets: 0,
-      totalBurnedTokens: 0,
-      totalClosedAccounts: 0,
-      totalEmptyAccountsClosed: 0,
-      burnOnlyOperations: 0,
-      fullCleanupOperations: 0,
-      mostRecentOperation: null,
-      topUser: { username: '', sol: 0 },
-      uniqueTokenSymbols: new Set(),
-      operationsByDay: new Map()
-    };
-    
-    // Process each stats file
-    for (const file of statsFiles) {
-      try {
-        const data = JSON.parse(await fs.readFile(path.join(STATS_DIR, file), 'utf8'));
-        
-        // Track unique users
-        stats.totalUsers.add(data.userId);
-        
-        // Accumulate totals
-        stats.totalSol += data.earnedSol || 0; // Net SOL to users
-        stats.totalUsdValue += data.usdValue || 0; // Net USD to users
-        stats.totalFeesCollected += data.feesCollected || 0;
-        stats.totalFeeUsdValue += data.feeUsdValue || 0;
-        stats.totalGrossSol += data.grossSol || data.earnedSol || 0; // Total before fees
-        stats.totalWallets += data.wallets || 0;
-        stats.totalBurnedTokens += data.burnedTokens || 0;
-        stats.totalClosedAccounts += data.closedAccounts || 0;
-        stats.totalEmptyAccountsClosed += data.emptyAccountsClosed || 0;
-        
-        // Track operation types
-        if (data.burnOnly) {
-          stats.burnOnlyOperations++;
-        } else {
-          stats.fullCleanupOperations++;
-        }
-        
-        // Track most recent operation
-        if (!stats.mostRecentOperation || new Date(data.timestamp) > new Date(stats.mostRecentOperation.timestamp)) {
-          stats.mostRecentOperation = data;
-        }
-        
-        // Track top user
-        if ((data.earnedSol || 0) > stats.topUser.sol) {
-          stats.topUser = {
-            username: data.username || 'Anonymous',
-            sol: data.earnedSol || 0,
-            usdValue: data.usdValue || 0
-          };
-        }
-        
-        // Track unique token symbols
-        if (data.burnedTokenDetails) {
-          data.burnedTokenDetails.forEach(token => {
-            if (token.symbol) {
-              stats.uniqueTokenSymbols.add(token.symbol);
-            }
-          });
-        }
-        
-        // Track operations by day
-        if (data.timestamp) {
-          const date = new Date(data.timestamp).toISOString().split('T')[0];
-          stats.operationsByDay.set(date, (stats.operationsByDay.get(date) || 0) + 1);
-        }
-      } catch (error) {
-        console.error(`Error processing stats file ${file}:`, error.message);
-      }
-    }
-    
-    // Get current SOL price for USD conversion
-    const solPrice = await getSolToUsdRate();
-    const currentUsdValue = stats.totalSol * solPrice;
-    
-    // Calculate average SOL per user
-    const avgSolPerUser = stats.totalUsers.size > 0 ? stats.totalSol / stats.totalUsers.size : 0;
-    const avgWalletsPerUser = stats.totalUsers.size > 0 ? stats.totalWallets / stats.totalUsers.size : 0;
-    
-    // Get recent activity (last 7 days)
-    const last7Days = Array.from({length: 7}, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return date.toISOString().split('T')[0];
-    });
-    const recentActivity = last7Days.reduce((sum, date) => sum + (stats.operationsByDay.get(date) || 0), 0);
-    
-    // Build comprehensive stats message
-    let message = `📊 <b>Comprehensive Bot Statistics</b>\n\n`;
-    
-    // Core metrics
-    message += `👥 <b>Users & Operations</b>\n`;
-    message += `• Total Unique Users: ${stats.totalUsers.size}\n`;
-    message += `• Total Operations: ${stats.burnOnlyOperations + stats.fullCleanupOperations}\n`;
-    message += `• Burn-Only Operations: ${stats.burnOnlyOperations}\n`;
-    message += `• Full Cleanup Operations: ${stats.fullCleanupOperations}\n`;
-    message += `• Recent Activity (7 days): ${recentActivity} operations\n\n`;
-    
-    // Financial metrics
-    message += `💰 <b>Financial Impact</b>\n`;
-    message += `• Total SOL to Users: ${stats.totalSol.toFixed(6)} SOL\n`;
-    message += `• Total Fees Collected: ${stats.totalFeesCollected.toFixed(6)} SOL\n`;
-    message += `• Total SOL Processed: ${stats.totalGrossSol.toFixed(6)} SOL\n`;
-    message += `• Current User USD Value: ~$${currentUsdValue.toFixed(2)}\n`;
-    message += `• Historical User USD: ~$${stats.totalUsdValue.toFixed(2)}\n`;
-    message += `• Total Fee USD: ~$${stats.totalFeeUsdValue.toFixed(2)}\n`;
-    message += `• Average SOL per User: ${avgSolPerUser.toFixed(6)} SOL\n\n`;
-    
-    // Wallet & account metrics
-    message += `🏦 <b>Wallet & Account Metrics</b>\n`;
-    message += `• Total Wallets Processed: ${stats.totalWallets}\n`;
-    message += `• Average Wallets per User: ${avgWalletsPerUser.toFixed(1)}\n`;
-    message += `• Total Accounts Closed: ${stats.totalClosedAccounts}\n`;
-    message += `• Empty Accounts Closed: ${stats.totalEmptyAccountsClosed}\n`;
-    message += `• Token Accounts Burned: ${stats.totalBurnedTokens}\n\n`;
-    
-    // Token metrics
-    message += `🔥 <b>Token Metrics</b>\n`;
-    message += `• Total Tokens Burned: ${stats.totalBurnedTokens}\n`;
-    message += `• Unique Token Types: ${stats.uniqueTokenSymbols.size}\n\n`;
-    
-    // Top performer
-    if (stats.topUser.sol > 0) {
-      message += `🏆 <b>Top User</b>\n`;
-      message += `• Username: ${stats.topUser.username}\n`;
-      message += `• SOL Reclaimed: ${stats.topUser.sol.toFixed(6)} SOL\n`;
-      if (stats.topUser.usdValue > 0) {
-        message += `• USD Value: ~$${stats.topUser.usdValue.toFixed(2)}\n`;
-      }
-      message += `\n`;
-    }
-    
-    // Recent activity
-    if (stats.mostRecentOperation) {
-      const timeDiff = Date.now() - new Date(stats.mostRecentOperation.timestamp).getTime();
-      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
-      const timeAgoText = hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.floor(hoursAgo / 24)}d ago`;
-      
-      message += `⏰ <b>Recent Activity</b>\n`;
-      message += `• Last Operation: ${timeAgoText}\n`;
-      message += `• By: ${stats.mostRecentOperation.username || 'Anonymous'}\n`;
-      message += `• Reclaimed: ${(stats.mostRecentOperation.earnedSol || 0).toFixed(6)} SOL\n`;
-    }
-    
-    await ctx.replyWithHTML(message);
-    
-  } catch (error) {
-    console.error('❌ Error getting comprehensive stats:', error.message);
-    await ctx.reply('❌ Error retrieving statistics. Please try again later.');
-  }
-});
-
 // Error handling
 bot.catch((err, ctx) => {
   console.error('🚨 Bot error:', err.message);
@@ -1679,7 +1969,70 @@ bot.catch((err, ctx) => {
   console.error('Context:', ctx.update);
 });
 
+// Graceful shutdown handling
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('🚨 Uncaught Exception:', error);
+  // Don't exit immediately, let the bot try to recover
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit immediately, let the bot try to recover
+});
+
 bot.launch().then(()=>{
   console.log('🤖 Bot started successfully');
   console.log('📅 Started at:', new Date().toISOString());
+  console.log('🔄 Bot will run continuously...');
+  console.log('🔄 Auto-restart scheduled every 2 hours');
+  
+  const startTime = Date.now();
+  const RESTART_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+  
+  // Function to perform graceful restart
+  const gracefulRestart = (reason = 'Scheduled restart') => {
+    console.log(`🔄 ${reason} - shutting down gracefully...`);
+    
+    // Clear any ongoing operations
+    userState.clear();
+    
+    // Stop the bot
+    bot.stop(reason);
+    
+    // Exit after a short delay to allow cleanup
+    setTimeout(() => {
+      console.log('✅ Bot shutdown complete. Process manager will restart...');
+      process.exit(0);
+    }, 3000);
+  };
+  
+  // Schedule automatic restart every 2 hours
+  setTimeout(() => {
+    const uptime = ((Date.now() - startTime) / 1000 / 60 / 60).toFixed(1);
+    gracefulRestart(`Auto-restart after ${uptime} hours`);
+  }, RESTART_INTERVAL);
+  
+  // Monitor memory usage and restart if it gets too high
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    
+    // Log memory usage every 30 minutes
+    if (Date.now() - startTime > 0 && (Date.now() - startTime) % (30 * 60 * 1000) < 60000) {
+      console.log(`📊 Memory usage: ${memUsageMB}MB`);
+    }
+    
+    // Restart if memory usage exceeds 500MB
+    if (memUsageMB > 500) {
+      gracefulRestart(`High memory usage: ${memUsageMB}MB`);
+    }
+  }, 60000); // Check every minute
+  
+}).catch((error) => {
+  console.error('❌ Failed to start bot:', error);
+  process.exit(1);
 });

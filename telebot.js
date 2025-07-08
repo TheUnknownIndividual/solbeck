@@ -385,15 +385,29 @@ async function processSelectedTokens(privateKeyStrings, consolidateTo, selectedT
   console.log('📍 Token account rent destination:', rentDestination.toString());
   
   const burnJobs = [];
-  const closeJobs = [];
+  let actualReclaimedLamports = 0;
   
-  // Prepare burn instructions for selected tokens
+  // Prepare burn instructions for selected tokens and calculate actual rent
   for (const tokenIndex of selectedTokens) {
     const token = allTokens[tokenIndex];
     if (token) {
       console.log(`🔥 Will burn: ${token.displayName}`);
+      
+      // Get actual account rent before burning
+      try {
+        const accountInfo = await conn.getAccountInfo(token.pubkey);
+        if (accountInfo) {
+          actualReclaimedLamports += accountInfo.lamports;
+        }
+      } catch (error) {
+        console.log(`Warning: Could not get account info for ${token.pubkey.toString()}`);
+        // Fallback to estimated amount
+        actualReclaimedLamports += 0.00203928 * 1e9;
+      }
+      
       burnJobs.push({
         owner: token.owner,
+        pubkey: token.pubkey,
         burnIx: createBurnInstruction(
           token.pubkey,
           token.mint,
@@ -406,6 +420,7 @@ async function processSelectedTokens(privateKeyStrings, consolidateTo, selectedT
   }
   
   console.log(`🔥 Total tokens to burn: ${burnJobs.length}`);
+  console.log(`💰 Actual rent to be reclaimed: ${(actualReclaimedLamports / 1e9).toFixed(6)} SOL`);
   
   if (burnJobs.length > 0) {
     // Process burns in batches
@@ -459,52 +474,75 @@ async function processSelectedTokens(privateKeyStrings, consolidateTo, selectedT
     }
   }
   
-  return burnJobs.length;
+  return {
+    burnCount: burnJobs.length,
+    actualReclaimedLamports
+  };
 }
 
 // Process selected tokens for burning with fee collection
 async function processSelectedTokensWithFees(privateKeyStrings, consolidateTo, selectedTokens, allTokens, userId = null) {
-  const burnCount = await processSelectedTokens(privateKeyStrings, consolidateTo, selectedTokens, allTokens);
+  const result = await processSelectedTokens(privateKeyStrings, consolidateTo, selectedTokens, allTokens);
   
-  // Collect fees from burned token accounts
-  if (burnCount > 0) {
+  // Extract actual reclaimed amounts and burned count
+  const { burnCount, actualReclaimedLamports = 0 } = result;
+  
+  // Collect fees from burned token accounts using actual amounts
+  if (burnCount > 0 && actualReclaimedLamports > 1000) {
     console.log('\n💰 Collecting fees from burned token accounts...');
     const conn = new Connection(RPC_URL, 'confirmed');
     const rentDestination = consolidateTo ? new PublicKey(consolidateTo) : Keypair.fromSecretKey(bs58.decode(privateKeyStrings[0])).publicKey;
-    const estimatedRentFromBurns = burnCount * 0.00203928 * 1e9; // Estimated rent in lamports
+    const owners = privateKeyStrings.map(s => Keypair.fromSecretKey(bs58.decode(s)));
     
-    if (estimatedRentFromBurns > 1000) {
-      const feeCalc = calculateFeeAndCreateInstructions(estimatedRentFromBurns, rentDestination, userId, privateKeyStrings.length);
-      
-      if (feeCalc.feeInstructions.length > 0) {
-        try {
-          console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%) from burned tokens`);
-          
-          const { blockhash } = await conn.getLatestBlockhash('confirmed');
-          const feeMessage = new TransactionMessage({
-            payerKey: FEE_PAYER.publicKey,
-            recentBlockhash: blockhash,
-            instructions: feeCalc.feeInstructions,
-          }).compileToV0Message();
-          
-          const feeTx = new VersionedTransaction(feeMessage);
-          feeTx.sign([FEE_PAYER]);
-          
-          const feeSig = await conn.sendRawTransaction(feeTx.serialize());
-          await confirmByPolling(conn, feeSig);
-          
-          console.log(`✅ Fee collection successful from burned tokens: ${feeSig}`);
-          return feeCalc.feeLamports / 1e9; // Return fee amount in SOL
-        } catch (feeError) {
-          console.error('⚠️ Fee collection failed for burned tokens (continuing with operation):', feeError.message);
+    const feeCalc = calculateFeeAndCreateInstructions(actualReclaimedLamports, rentDestination, userId, privateKeyStrings.length);
+    
+    if (feeCalc.feeInstructions.length > 0) {
+      try {
+        console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%) from burned tokens`);
+        
+        // Find the correct keypair to sign the transaction
+        const feeDestinationKeypair = owners.find(o => o.publicKey.toString() === rentDestination.toString());
+        if (!feeDestinationKeypair) {
+          throw new Error('Fee destination keypair not found in owners');
         }
-      } else if (feeCalc.isFeeless) {
-        console.log(`🎁 Feeless service applied for referral user - no fees collected from burned tokens`);
+        
+        const { blockhash } = await conn.getLatestBlockhash('confirmed');
+        const feeMessage = new TransactionMessage({
+          payerKey: FEE_PAYER.publicKey,
+          recentBlockhash: blockhash,
+          instructions: feeCalc.feeInstructions,
+        }).compileToV0Message();
+        
+        const feeTx = new VersionedTransaction(feeMessage);
+        feeTx.sign([FEE_PAYER, feeDestinationKeypair]);
+        
+        const feeSig = await conn.sendRawTransaction(feeTx.serialize());
+        await confirmByPolling(conn, feeSig);
+        
+        console.log(`✅ Fee collection successful from burned tokens: ${feeSig}`);
+        return {
+          burnCount,
+          actualReclaimedLamports,
+          feesCollected: feeCalc.feeLamports,
+          netUserAmount: feeCalc.userLamports
+        };
+      } catch (feeError) {
+        console.error('⚠️ Fee collection failed for burned tokens (continuing with operation):', feeError.message);
+        if (feeError.stack) {
+          console.error('Fee collection error stack:', feeError.stack);
+        }
       }
+    } else if (feeCalc.isFeeless) {
+      console.log(`🎁 Feeless service applied for referral user - no fees collected from burned tokens`);
     }
   }
   
-  return 0; // No fees collected
+  return {
+    burnCount: burnCount || 0,
+    actualReclaimedLamports: actualReclaimedLamports || 0,
+    feesCollected: 0,
+    netUserAmount: actualReclaimedLamports || 0
+  };
 }
 
 // The core close + reclaim logic for empty accounts
@@ -513,7 +551,7 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
   
   if (emptyAccounts.length === 0) {
     console.log('ℹ️ No empty accounts to close');
-    return { closed: 0, reclaimedSol: 0 };
+    return { closed: 0, reclaimedSol: 0, feesCollected: 0, netUserAmount: 0 };
   }
   
   const conn = new Connection(RPC_URL, 'confirmed');
@@ -525,12 +563,30 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
   // Create close instructions
   const jobs = emptyAccounts.map(({ owner, pubkey }) => ({
     owner,
+    pubkey,
     ix: createCloseAccountInstruction(pubkey, rentDestination, owner.publicKey, [])
   }));
   
   // Batch-close (6 at a time)
   const BATCH = 6;
   let batchTxSig = null;
+  let actualReclaimedLamports = 0;
+  
+  // Get balances before closing to calculate actual reclaimed amounts
+  for (const job of jobs) {
+    try {
+      const accountInfo = await conn.getAccountInfo(job.pubkey);
+      if (accountInfo) {
+        actualReclaimedLamports += accountInfo.lamports;
+      }
+    } catch (error) {
+      console.log(`Warning: Could not get account info for ${job.pubkey.toString()}`);
+      // Fallback to estimated amount
+      actualReclaimedLamports += 0.00203928 * 1e9;
+    }
+  }
+  
+  console.log(`💰 Actual rent to be reclaimed: ${(actualReclaimedLamports / 1e9).toFixed(6)} SOL`);
   
   for (let i = 0; i < jobs.length; i += BATCH) {
     const slice = jobs.slice(i, i + BATCH);
@@ -608,16 +664,23 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
     }
   }
   
-  // Collect fees from the rent destination (regardless of consolidation preference)
-  const feeDestination = consolidateTo ? new PublicKey(consolidateTo) : owners[0].publicKey;
-  const estimatedRentReclaimed = jobs.length * 0.00203928 * 1e9; // Estimated rent in lamports
+  // Use actual reclaimed amount instead of estimate
+  const totalReclaimed = actualReclaimedLamports + totalReclaimedLamports;
   
-  if (estimatedRentReclaimed > 1000) {
-    const feeCalc = calculateFeeAndCreateInstructions(estimatedRentReclaimed, feeDestination, userId, privateKeyStrings.length);
+  // Collect fees from the rent destination using actual amounts
+  if (totalReclaimed > 1000) {
+    const feeDestination = consolidateTo ? new PublicKey(consolidateTo) : owners[0].publicKey;
+    const feeCalc = calculateFeeAndCreateInstructions(totalReclaimed, feeDestination, userId, privateKeyStrings.length);
     
     if (feeCalc.feeInstructions.length > 0) {
       try {
         console.log(`💲 Collecting ${feeCalc.feeAmount.toFixed(6)} SOL fee (${(FEE_RATE * 100)}%) from empty accounts`);
+        
+        // Create fee collection transaction with proper signer
+        const feeDestinationKeypair = owners.find(o => o.publicKey.toString() === feeDestination.toString());
+        if (!feeDestinationKeypair) {
+          throw new Error('Fee destination keypair not found in owners');
+        }
         
         const { blockhash } = await conn.getLatestBlockhash('confirmed');
         const feeMessage = new TransactionMessage({
@@ -627,7 +690,7 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
         }).compileToV0Message();
         
         const feeTx = new VersionedTransaction(feeMessage);
-        feeTx.sign([FEE_PAYER]);
+        feeTx.sign([FEE_PAYER, feeDestinationKeypair]);
         
         const feeSig = await conn.sendRawTransaction(feeTx.serialize());
         await confirmByPolling(conn, feeSig);
@@ -636,6 +699,9 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
         console.log(`✅ Fee collection successful from empty accounts: ${feeSig}`);
       } catch (feeError) {
         console.error('⚠️ Fee collection failed from empty accounts (continuing with operation):', feeError.message);
+        if (feeError.stack) {
+          console.error('Fee collection error stack:', feeError.stack);
+        }
       }
     } else if (feeCalc.isFeeless) {
       console.log(`🎁 Feeless service applied for referral user - no fees collected from empty accounts`);
@@ -644,9 +710,9 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
   
   return {
     closed: jobs.length,
-    reclaimedSol: totalReclaimedLamports / 1e9,
+    reclaimedSol: totalReclaimed / 1e9,
     feesCollected: totalFeesCollected / 1e9,
-    netUserAmount: (totalReclaimedLamports - totalFeesCollected) / 1e9,
+    netUserAmount: (totalReclaimed - totalFeesCollected) / 1e9,
     batchTxSig
   };
 }
@@ -1628,7 +1694,6 @@ async function runProcessing(ctx, selectedTokens = []) {
     
     let burnedTokens = 0;
     let closedAccounts = 0;
-    let reclaimedSol = 0;
     let lastTxSig = null;
     
     let burnedTokenDetails = [];
@@ -1653,15 +1718,18 @@ async function runProcessing(ctx, selectedTokens = []) {
     // Update referral wallet count
     updateReferralWalletCount(ctx.from.id, keys.length);
     
-    // Calculate total SOL reclaimed (from both burned tokens and empty accounts)
-    const tokenAccountsSol = burnedTokens * 0.00203928; // Approximate rent per token account
-    const totalReclaimedSol = tokenAccountsSol + reclaimedSol;
+    // Calculate total SOL reclaimed (using actual amounts from processEmptyAccounts)
+    const totalReclaimedSol = result.reclaimedSol || 0;
+    const feesCollected = result.feesCollected || 0;
+    const netUserAmount = result.netUserAmount || totalReclaimedSol;
     
     // Get USD value if we have SOL to show
     let usdValue = 0;
+    let feeUsdValue = 0;
     if (totalReclaimedSol > 0) {
       const solToUsd = await getSolToUsdRate();
-      usdValue = totalReclaimedSol * solToUsd;
+      usdValue = netUserAmount * solToUsd; // Net amount user receives
+      feeUsdValue = feesCollected * solToUsd;
     }
     
     await ctx.deleteMessage(sentMsg.message_id);
@@ -1685,14 +1753,26 @@ async function runProcessing(ctx, selectedTokens = []) {
       
       if (totalReclaimedSol > 0) {
         message += `💰 <b>Total Reclaimed:</b> ${totalReclaimedSol.toFixed(6)} SOL`;
-        if (usdValue > 0) {
-          message += ` (~$${usdValue.toFixed(2)} USD)`;
+        if (totalReclaimedSol * await getSolToUsdRate() > 0) {
+          message += ` (~$${(totalReclaimedSol * await getSolToUsdRate()).toFixed(2)} USD)`;
         }
         message += `\n`;
         
+        if (feesCollected > 0) {
+          message += `💲 <b>Service Fee (10%):</b> ${feesCollected.toFixed(6)} SOL`;
+          if (feeUsdValue > 0) {
+            message += ` (~$${feeUsdValue.toFixed(2)} USD)`;
+          }
+          message += `\n`;
+          message += `✅ <b>You Receive:</b> ${netUserAmount.toFixed(6)} SOL`;
+          if (usdValue > 0) {
+            message += ` (~$${usdValue.toFixed(2)} USD)`;
+          }
+          message += `\n`;
+        }
+        
         if (burnedTokens > 0 && closedAccounts > 0) {
-          message += `  └ From ${burnedTokens} burned tokens: ~${tokenAccountsSol.toFixed(6)} SOL\n`;
-          message += `  └ From ${closedAccounts} empty accounts: ${reclaimedSol.toFixed(6)} SOL\n`;
+          message += `  └ From ${burnedTokens} burned tokens + ${closedAccounts} empty accounts\n`;
         }
       }
       
@@ -1716,12 +1796,16 @@ async function runProcessing(ctx, selectedTokens = []) {
       
       await ctx.replyWithHTML(message, { disable_web_page_preview: true });
       
-      // Record stats
+      // Record stats with actual amounts
       const stats = {
         userId: ctx.from.id,
         username: ctx.from.username || ctx.from.first_name,
-        earnedSol: totalReclaimedSol,
-        usdValue: usdValue,
+        earnedSol: netUserAmount, // Net amount after fees
+        grossSol: totalReclaimedSol, // Total before fees
+        feesCollected: feesCollected,
+        usdValue: usdValue, // Net USD value
+        grossUsdValue: totalReclaimedSol * (await getSolToUsdRate()),
+        feeUsdValue: feeUsdValue,
         wallets: keys.length,
         burnedTokens,
         closedAccounts,
@@ -1736,6 +1820,7 @@ async function runProcessing(ctx, selectedTokens = []) {
           isFeeless: isUserFeeless(ctx.from.id, keys.length),
           totalWalletsProcessed: referralInfo.walletCount + keys.length
         } : null,
+        feeRate: FEE_RATE,
         timestamp: new Date().toISOString(),
       };
       await fs.writeFile(

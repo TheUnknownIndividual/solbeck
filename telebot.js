@@ -93,7 +93,8 @@ const TRANSLATIONS = {
     no_fees_charged: "💳 <b>No transaction fees charged to you - we covered all gas costs!</b>",
     referral_remaining: "🎁 <b>{} member:</b> {} feeless wallet{} remaining!",
     referral_quota_used: "🎁 <b>{} member:</b> Feeless quota used. Standard 10% fee applies to future operations.",
-    view_on_solscan: "View on Solscan"
+    view_on_solscan: "View on Solscan",
+    language_selector: "🌐 Language / Язык"
   },
   ru: {
     welcome: "🤖 <b>Добро пожаловать в SolBeck!</b>\n\n🔥 <b>Мульти-кошелёк сжигатель токенов и возвратчик SOL</b>\n\n✨ <b>Что я могу делать:</b>\n• Сжигать нежелательные токены из нескольких кошельков\n• Закрывать пустые токен-аккаунты для возврата SOL аренды\n• Консолидировать SOL из нескольких кошельков\n• Обрабатывать большие партии (до 100 кошельков)\n\n🚀 <b>Готовы оптимизировать свои кошельки?</b>",
@@ -162,7 +163,8 @@ const TRANSLATIONS = {
     no_fees_charged: "💳 <b>Никаких транзакционных комиссий с вас не взимается - мы покрыли все газовые расходы!</b>",
     referral_remaining: "🎁 <b>Участник {}:</b> {} бесплатны{} кошелек{} осталось!",
     referral_quota_used: "🎁 <b>Участник {}:</b> Бесплатная квота использована. Стандартная 10% комиссия применяется к будущим операциям.",
-    view_on_solscan: "Посмотреть на Solscan"
+    view_on_solscan: "Посмотреть на Solscan",
+    language_selector: "🌐 Language / Язык"
   }
 };
 
@@ -980,12 +982,106 @@ bot.start(async ctx => {
     {
       reply_markup: Markup.inlineKeyboard([
         [Markup.button.callback(t(ctx, 'continue_cleanup'), 'CONTINUE')],
-        [Markup.button.callback(t(ctx, 'burn_leftover'), 'BURN_LEFTOVER')]
+        [Markup.button.callback(t(ctx, 'burn_leftover'), 'BURN_LEFTOVER')],
+        [Markup.button.callback(t(ctx, 'language_selector'), 'LANGUAGE_SELECT')]
       ]).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML'
     }
   );
+});
+
+// Language selection handler
+bot.action('LANGUAGE_SELECT', async ctx => {
+  console.log(`🌐 User ${ctx.from.id} clicked language selector`);
+  await ctx.editMessageText(
+    '🌐 <b>Select your language / Выберите язык:</b>',
+    {
+      reply_markup: Markup.inlineKeyboard([
+        [Markup.button.callback('🇺🇸 English', 'LANG_EN')],
+        [Markup.button.callback('🇷🇺 Русский', 'LANG_RU')],
+        [Markup.button.callback('⬅️ Back / Назад', 'BACK_TO_START')]
+      ]).reply_markup,
+      parse_mode: 'HTML'
+    }
+  );
+});
+
+// Language selection handlers
+bot.action('LANG_EN', async ctx => {
+  console.log(`🇺🇸 User ${ctx.from.id} selected English`);
+  setUserLanguage(ctx.from.id, 'en');
+  await ctx.editMessageText(
+    '🇺🇸 <b>Language set to English!</b>\n\nRestarting bot...',
+    { parse_mode: 'HTML' }
+  );
+  setTimeout(async () => {
+    userState.delete(ctx.from.id);
+    // Simulate /start command
+    await ctx.deleteMessage();
+    // Trigger start command logic
+    const startPayload = null;
+    let referralMessage = '';
+    let feeMessage = t(ctx, 'rewards_fees') + '\n\n';
+    
+    const who = ctx.from.username || ctx.from.first_name;
+    await ctx.replyWithHTML(
+      t(ctx, 'welcome_to', who) + '\n\n' +
+      referralMessage +
+      t(ctx, 'what_we_offer') + '\n\n' +
+      feeMessage +
+      t(ctx, 'no_sol_needed') + '\n\n' +
+      t(ctx, 'open_source') + '\n\n' +
+      t(ctx, 'choose_action'),
+      {
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback(t(ctx, 'continue_cleanup'), 'CONTINUE')],
+          [Markup.button.callback(t(ctx, 'burn_leftover'), 'BURN_LEFTOVER')],
+          [Markup.button.callback(t(ctx, 'language_selector'), 'LANGUAGE_SELECT')]
+        ]).reply_markup,
+        disable_web_page_preview: true,
+        parse_mode: 'HTML'
+      }
+    );
+  }, 1000);
+});
+
+bot.action('LANG_RU', async ctx => {
+  console.log(`🇷🇺 User ${ctx.from.id} selected Russian`);
+  setUserLanguage(ctx.from.id, 'ru');
+  await ctx.editMessageText(
+    '🇷🇺 <b>Язык установлен на русский!</b>\n\nПерезапуск бота...',
+    { parse_mode: 'HTML' }
+  );
+  setTimeout(async () => {
+    userState.delete(ctx.from.id);
+    // Simulate /start command
+    await ctx.deleteMessage();
+    // Trigger start command logic
+    const startPayload = null;
+    let referralMessage = '';
+    let feeMessage = t(ctx, 'rewards_fees') + '\n\n';
+    
+    const who = ctx.from.username || ctx.from.first_name;
+    await ctx.replyWithHTML(
+      t(ctx, 'welcome_to', who) + '\n\n' +
+      referralMessage +
+      t(ctx, 'what_we_offer') + '\n\n' +
+      feeMessage +
+      t(ctx, 'no_sol_needed') + '\n\n' +
+      t(ctx, 'open_source') + '\n\n' +
+      t(ctx, 'choose_action'),
+      {
+        reply_markup: Markup.inlineKeyboard([
+          [Markup.button.callback(t(ctx, 'continue_cleanup'), 'CONTINUE')],
+          [Markup.button.callback(t(ctx, 'burn_leftover'), 'BURN_LEFTOVER')],
+          [Markup.button.callback(t(ctx, 'language_selector'), 'LANGUAGE_SELECT')]
+        ]).reply_markup,
+        disable_web_page_preview: true,
+        parse_mode: 'HTML'
+      }
+    );
+  }, 1000);
 });
 
 // 2) CONTINUE → ask for keys
@@ -1207,13 +1303,31 @@ bot.command('stats', async ctx => {
     // Recent activity
     if (stats.mostRecentOperation) {
       const timeDiff = Date.now() - new Date(stats.mostRecentOperation.timestamp).getTime();
-      const hoursAgo = Math.floor(timeDiff / (1000 * 60 * 60));
-      const timeAgoText = hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.floor(hoursAgo / 24)}d ago`;
+      
+      // Calculate time components
+      const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+      
+      // Format time text
+      let timeAgoText = '';
+      if (days > 0) {
+        timeAgoText = `${days}d ${hours}h ago`;
+      } else if (hours > 0) {
+        timeAgoText = `${hours}h ${minutes}m ago`;
+      } else if (minutes > 0) {
+        timeAgoText = `${minutes}m ${seconds}s ago`;
+      } else {
+        timeAgoText = `${seconds}s ago`;
+      }
       
       message += `⏰ <b>Recent Activity</b>\n`;
       message += `• Last Operation: ${timeAgoText}\n`;
       message += `• By: ${stats.mostRecentOperation.username || 'Anonymous'}\n`;
-      message += `• Reclaimed: ${(stats.mostRecentOperation.earnedSol || 0).toFixed(6)} SOL\n`;
+      // Use grossSol if available, otherwise earnedSol, otherwise netUserAmount
+      const reclaimedSol = stats.mostRecentOperation.grossSol || stats.mostRecentOperation.earnedSol || stats.mostRecentOperation.netUserAmount || 0;
+      message += `• Reclaimed: ${reclaimedSol.toFixed(6)} SOL\n`;
     }
     
     console.log('📊 Sending stats message...');
@@ -1930,7 +2044,7 @@ async function runProcessing(ctx, selectedTokens = []) {
     
     // Calculate total SOL reclaimed (using actual amounts from processEmptyAccounts and burn tokens)
     const totalReclaimedSol = result.reclaimedSol || 0;
-    const feesCollected = (result.feesCollected || 0) + burnTokenFees;
+    const feesCollected = (result.feesCollected || 0) + (burnTokenFees / 1e9); // Convert lamports to SOL
     const netUserAmount = result.netUserAmount || totalReclaimedSol;
     
     // Get USD value if we have SOL to show
@@ -2119,7 +2233,7 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     // Process all remaining empty accounts automatically
     let closedEmptyAccounts = 0;
     let emptyAccountsSol = 0;
-    let totalFeesCollected = burnTokenFees;
+    let totalFeesCollected = burnTokenFees / 1e9; // Convert lamports to SOL
     if (emptyAccounts && emptyAccounts.length > 0) {
       console.log(`🧹 Automatically processing ${emptyAccounts.length} empty accounts`);
       const emptyResult = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);

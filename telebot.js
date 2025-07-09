@@ -24,6 +24,204 @@ import {
   getMint,
 } from '@solana/spl-token';
 
+// ===== MULTILINGUAL SUPPORT SYSTEM =====
+const TRANSLATIONS = {
+  en: {
+    welcome: "🤖 <b>Welcome to SolBeck!</b>\n\n🔥 <b>Multi-Wallet Token Burner & SOL Reclaimer</b>\n\n✨ <b>What I can do:</b>\n• Burn unwanted tokens from multiple wallets\n• Close empty token accounts to reclaim SOL rent\n• Consolidate SOL from multiple wallets\n• Handle large batches (up to 100 wallets)\n\n🚀 <b>Ready to optimize your wallets?</b>",
+    referral_welcome: "🎉 <b>Welcome to SolBeck!</b>\n\n🌟 <b>You're a valued member of the Magnum Community!</b>\n\nAs a special thank you for your support, you'll enjoy <b>feeless service</b> for all operations! 🎁\n\n✨ <b>What I can do:</b>\n• Burn unwanted tokens from multiple wallets\n• Close empty token accounts to reclaim SOL rent\n• Consolidate SOL from multiple wallets\n• Handle large batches (up to 100 wallets)\n\n🚀 <b>Ready to optimize your wallets?</b>",
+    get_started: "🚀 Get Started",
+    burn_tokens: "🔥 Burn Tokens Only",
+    provide_keys: "🔑 <b>Provide Your Private Keys</b>\n\n📝 Send me your private keys (one per line or separated by spaces/commas):\n\n⚠️ <b>Security Notes:</b>\n• Keys are encrypted and never stored permanently\n• Only you can see this conversation\n• Keys are deleted after processing\n• Up to 100 wallets supported\n\n💡 <b>Example format:</b>\n<code>3X4mF8...\n9Z2nK7...\n6A1sD9...</code>",
+    provide_keys_burn: "🔥 <b>Provide Keys for Token Burning</b>\n\n📝 Send me your private keys (one per line or separated by spaces/commas):\n\n⚠️ <b>Security Notes:</b>\n• Keys are encrypted and never stored permanently\n• Only you can see this conversation\n• Keys are deleted after processing\n• Up to 100 wallets supported\n\n💡 <b>Example format:</b>\n<code>3X4mF8...\n9Z2nK7...\n6A1sD9...</code>",
+    invalid_key: "❌ Invalid Base58 key detected—please /start again.",
+    invalid_key_burn: "❌ Invalid Base58 key detected—please /burntokens again.",
+    scanning: "🔍 Scanning your wallets for tokens...",
+    scanning_burn: "🔍 Scanning your wallets for tokens to burn...",
+    scan_error: "❌ Error scanning your wallets. Please try again with /start.",
+    scan_error_burn: "❌ Error scanning your wallets. Please try again with /burntokens.",
+    bad_secret_key: "❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /start to try again.",
+    bad_secret_key_burn: "❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /burntokens to try again.",
+    invalid_key_error: "❌ One or more private keys are invalid. Please check your keys and try again with /start.",
+    invalid_key_error_burn: "❌ One or more private keys are invalid. Please check your keys and try again with /burntokens.",
+    consolidate_yes: "✅ Consolidate all SOL",
+    consolidate_no: "❌ Keep SOL in wallets",
+    provide_address: "📮 <b>Provide Payout Address</b>\n\nPlease send me the Solana address where you'd like to receive your consolidated SOL:",
+    invalid_address: "❌ Invalid Solana address. Please provide a valid address.",
+    processing: "⚙️ Processing your request...\n\n⏳ This may take a few moments for large batches.",
+    no_actions: "ℹ️ No actions were taken. Your wallets are already optimized!",
+    success: "✅ <b>Success!</b>",
+    burned_tokens: "🔥 <b>Burned {} tokens:</b>",
+    closed_accounts: "🧹 <b>Closed {} empty accounts</b>",
+    consolidated_sol: "💰 <b>Consolidated {} SOL</b> → {}",
+    reclaimed_sol: "🪙 <b>Reclaimed {} SOL</b> from rent",
+    fees_collected: "💸 <b>Service fee:</b> {} SOL",
+    net_received: "💵 <b>Net received:</b> {} SOL",
+    usd_value: "💵 <b>USD value:</b> ${}",
+    transaction_link: "🔗 <b>Transaction:</b> <a href=\"https://solscan.io/tx/{}\">View on Solscan</a>",
+    stats_title: "📊 <b>Your SolBeck Statistics</b>",
+    stats_wallets: "🔑 <b>Total wallets processed:</b> {}",
+    stats_tokens: "🔥 <b>Total tokens burned:</b> {}",
+    stats_accounts: "🧹 <b>Total accounts closed:</b> {}",
+    stats_sol: "💰 <b>Total SOL reclaimed:</b> {} SOL",
+    stats_none: "📊 <b>No statistics yet</b>\n\nUse /start to begin optimizing your wallets!",
+    language_detect: "🌐 Language set to English",
+    language_switch: "🔄 Language",
+    welcome_to: "👋 <b>Welcome to solbeck, {}!</b>",
+    what_we_offer: "💰 <b>What we offer:</b>\n• Close empty token accounts & reclaim SOL rent\n• Detect inactive token accounts (5+ days)\n• Optimize wallet storage automatically\n• Safe & secure in-memory processing",
+    rewards_fees: "🎯 <b>Rewards & Fees:</b>\n• ~0.002 SOL per closed account\n• We take a 10% service fee from reclaimed SOL\n• You keep 90% of all reclaimed SOL",
+    no_sol_needed: "🎆 <b>No SOL needed in your wallets - we cover ALL gas fees!</b>",
+    open_source: "💻 <b>We're open source!</b> Check out our code at <a href=\"https://github.com/TheUnknownIndividual/solbeck\">GitHub</a>",
+    choose_action: "🚀 Choose your action:",
+    continue_cleanup: "🗯 Continue with Full Cleanup",
+    burn_leftover: "🔥 Burn Leftover Tokens",
+    referral_welcome_msg: "🎉🎁 <b>WELCOME {} MEMBER!</b> 🎁🎉\n\n⭐ <b>EXCLUSIVE BENEFIT UNLOCKED:</b> ⭐\n🆓 <b>FREE WALLET CLEANING FOR YOUR FIRST {} WALLETS!</b>\n💯 <b>ZERO SERVICE FEES - YOU KEEP 100% OF RECLAIMED SOL!</b>\n\n🔥 This means you can clean up to {} different wallets without paying any service fees at all!",
+    referral_benefits: "💎 <b>YOUR EXCLUSIVE {} BENEFITS:</b>\n🆓 <b>FIRST {} WALLETS: COMPLETELY FREE (0% fee)</b>\n💰 ~0.002 SOL reclaimed per closed token account\n💯 You keep 100% of ALL reclaimed SOL for your first {} wallets!\n🔄 After {} wallets: standard 10% service fee applies\n\n📊 <b>Free Wallet Counter: {}/{} remaining</b>",
+    burn_explanation: "🔥 <b>Burn Leftover Tokens</b>\n\n💡 <b>What this does:</b>\n• Scans your wallets for token accounts with balances\n• Identifies inactive tokens (no transactions for 5+ days)\n• Allows you to permanently burn unwanted tokens\n• Closes the accounts to reclaim SOL rent\n\n💰 <b>Rewards & Fees:</b>\n• ~0.002039 SOL per token account closed\n• We take a 10% service fee from reclaimed SOL\n• You keep 90% of all reclaimed SOL\n• 🎆 We pay ALL transaction fees for you!\n\n⚠️ <b>Important:</b>\n• Token burning is PERMANENT and irreversible\n• Only burn tokens you don't need\n• No SOL needed in your wallets for gas fees\n\n🔑 Ready to connect your wallet?",
+    start_burning: "🔥 Start Token Burning",
+    back_to_menu: "⬅️ Back to Main Menu",
+    success_header: "✅ <b>Success!</b>",
+    burned_tokens_header: "🔥 <b>Burned {} tokens:</b>",
+    closed_accounts_msg: "🗂️ Closed {} empty accounts",
+    total_reclaimed: "💰 <b>Total Reclaimed:</b> {} SOL",
+    service_fee: "💲 <b>Service Fee (10%):</b> {} SOL",
+    you_receive: "✅ <b>You Receive:</b> {} SOL",
+    cleaned_wallets: "👛 Cleaned up {} wallet(s)!",
+    breakdown_header: "📊 <b>Breakdown:</b>",
+    token_accounts_burned: "🔥 Token accounts burned: {}",
+    empty_accounts_closed: "🧹 Empty accounts closed: {}",
+    success_completion: "🎉 All accounts have been cleaned and your net SOL has been refunded to your destination address!",
+    no_fees_charged: "💳 <b>No transaction fees charged to you - we covered all gas costs!</b>",
+    referral_remaining: "🎁 <b>{} member:</b> {} feeless wallet{} remaining!",
+    referral_quota_used: "🎁 <b>{} member:</b> Feeless quota used. Standard 10% fee applies to future operations.",
+    view_on_solscan: "View on Solscan"
+  },
+  ru: {
+    welcome: "🤖 <b>Добро пожаловать в SolBeck!</b>\n\n🔥 <b>Мульти-кошелёк сжигатель токенов и возвратчик SOL</b>\n\n✨ <b>Что я могу делать:</b>\n• Сжигать нежелательные токены из нескольких кошельков\n• Закрывать пустые токен-аккаунты для возврата SOL аренды\n• Консолидировать SOL из нескольких кошельков\n• Обрабатывать большие партии (до 100 кошельков)\n\n🚀 <b>Готовы оптимизировать свои кошельки?</b>",
+    referral_welcome: "🎉 <b>Добро пожаловать в SolBeck!</b>\n\n🌟 <b>Вы ценный член сообщества Magnum!</b>\n\nВ качестве особой благодарности за вашу поддержку, вы получите <b>бесплатное обслуживание</b> для всех операций! 🎁\n\n✨ <b>Что я могу делать:</b>\n• Сжигать нежелательные токены из нескольких кошельков\n• Закрывать пустые токен-аккаунты для возврата SOL аренды\n• Консолидировать SOL из нескольких кошельков\n• Обрабатывать большие партии (до 100 кошельков)\n\n🚀 <b>Готовы оптимизировать свои кошельки?</b>",
+    get_started: "🚀 Начать",
+    burn_tokens: "🔥 Только сжечь токены",
+    provide_keys: "🔑 <b>Предоставьте ваши приватные ключи</b>\n\n📝 Отправьте мне ваши приватные ключи (по одному на строку или разделённые пробелами/запятыми):\n\n⚠️ <b>Примечания по безопасности:</b>\n• Ключи шифруются и никогда не хранятся постоянно\n• Только вы можете видеть этот разговор\n• Ключи удаляются после обработки\n• Поддерживается до 100 кошельков\n\n💡 <b>Пример формата:</b>\n<code>3X4mF8...\n9Z2nK7...\n6A1sD9...</code>",
+    provide_keys_burn: "🔥 <b>Предоставьте ключи для сжигания токенов</b>\n\n📝 Отправьте мне ваши приватные ключи (по одному на строку или разделённые пробелами/запятыми):\n\n⚠️ <b>Примечания по безопасности:</b>\n• Ключи шифруются и никогда не хранятся постоянно\n• Только вы можете видеть этот разговор\n• Ключи удаляются после обработки\n• Поддерживается до 100 кошельков\n\n💡 <b>Пример формата:</b>\n<code>3X4mF8...\n9Z2nK7...\n6A1sD9...</code>",
+    invalid_key: "❌ Обнаружен неверный Base58 ключ—пожалуйста, /start снова.",
+    invalid_key_burn: "❌ Обнаружен неверный Base58 ключ—пожалуйста, /burntokens снова.",
+    scanning: "🔍 Сканирую ваши кошельки на токены...",
+    scanning_burn: "🔍 Сканирую ваши кошельки на токены для сжигания...",
+    scan_error: "❌ Ошибка сканирования ваших кошельков. Попробуйте снова с /start.",
+    scan_error_burn: "❌ Ошибка сканирования ваших кошельков. Попробуйте снова с /burntokens.",
+    bad_secret_key: "❌ Обнаружен неверный формат приватного ключа. Убедитесь, что все приватные ключи являются действительными 64-символьными Base58 строками. Используйте /start для повтора.",
+    bad_secret_key_burn: "❌ Обнаружен неверный формат приватного ключа. Убедитесь, что все приватные ключи являются действительными 64-символьными Base58 строками. Используйте /burntokens для повтора.",
+    invalid_key_error: "❌ Один или несколько приватных ключей неверны. Проверьте ваши ключи и попробуйте снова с /start.",
+    invalid_key_error_burn: "❌ Один или несколько приватных ключей неверны. Проверьте ваши ключи и попробуйте снова с /burntokens.",
+    consolidate_yes: "✅ Консолидировать весь SOL",
+    consolidate_no: "❌ Оставить SOL в кошельках",
+    provide_address: "📮 <b>Предоставьте адрес выплаты</b>\n\nПожалуйста, отправьте мне Solana адрес, куда вы хотите получить ваш консолидированный SOL:",
+    invalid_address: "❌ Неверный Solana адрес. Пожалуйста, предоставьте действительный адрес.",
+    processing: "⚙️ Обрабатываю ваш запрос...\n\n⏳ Это может занять несколько минут для больших партий.",
+    no_actions: "ℹ️ Никаких действий не было предпринято. Ваши кошельки уже оптимизированы!",
+    success: "✅ <b>Успех!</b>",
+    burned_tokens: "🔥 <b>Сожжено {} токенов:</b>",
+    closed_accounts: "🧹 <b>Закрыто {} пустых аккаунтов</b>",
+    consolidated_sol: "💰 <b>Консолидировано {} SOL</b> → {}",
+    reclaimed_sol: "🪙 <b>Возвращено {} SOL</b> из аренды",
+    fees_collected: "💸 <b>Сервисная комиссия:</b> {} SOL",
+    net_received: "💵 <b>Чистая прибыль:</b> {} SOL",
+    usd_value: "💵 <b>USD стоимость:</b> ${}",
+    transaction_link: "🔗 <b>Транзакция:</b> <a href=\"https://solscan.io/tx/{}\">Посмотреть на Solscan</a>",
+    stats_title: "📊 <b>Ваша статистика SolBeck</b>",
+    stats_wallets: "🔑 <b>Всего кошельков обработано:</b> {}",
+    stats_tokens: "🔥 <b>Всего токенов сожжено:</b> {}",
+    stats_accounts: "🧹 <b>Всего аккаунтов закрыто:</b> {}",
+    stats_sol: "💰 <b>Всего SOL возвращено:</b> {} SOL",
+    stats_none: "📊 <b>Пока нет статистики</b>\n\nИспользуйте /start чтобы начать оптимизацию ваших кошельков!",
+    language_detect: "🌐 Язык установлен на русский",
+    language_switch: "🔄 Язык",
+    welcome_to: "👋 <b>Добро пожаловать в solbeck, {}!</b>",
+    what_we_offer: "💰 <b>Что мы предлагаем:</b>\n• Закрытие пустых токен-аккаунтов и возврат SOL аренды\n• Обнаружение неактивных токен-аккаунтов (5+ дней)\n• Автоматическая оптимизация хранения кошельков\n• Безопасная обработка в памяти",
+    rewards_fees: "🎯 <b>Награды и комиссии:</b>\n• ~0.002 SOL за закрытый аккаунт\n• Мы берём 10% сервисную комиссию с возвращённых SOL\n• Вы сохраняете 90% всех возвращённых SOL",
+    no_sol_needed: "🎆 <b>SOL не нужен в ваших кошельках - мы покрываем ВСЕ газовые комиссии!</b>",
+    open_source: "💻 <b>Мы с открытым исходным кодом!</b> Посмотрите наш код на <a href=\"https://github.com/TheUnknownIndividual/solbeck\">GitHub</a>",
+    choose_action: "🚀 Выберите ваше действие:",
+    continue_cleanup: "🗯 Продолжить с полной очисткой",
+    burn_leftover: "🔥 Сжечь оставшиеся токены",
+    referral_welcome_msg: "🎉🎁 <b>ДОБРО ПОЖАЛОВАТЬ УЧАСТНИК {}!</b> 🎁🎉\n\n⭐ <b>ЭКСКЛЮЗИВНАЯ ВЫГОДА РАЗБЛОКИРОВАНА:</b> ⭐\n🆓 <b>БЕСПЛАТНАЯ ОЧИСТКА КОШЕЛЬКА ДЛЯ ВАШИХ ПЕРВЫХ {} КОШЕЛЬКОВ!</b>\n💯 <b>НУЛЕВЫЕ СЕРВИСНЫЕ КОМИССИИ - ВЫ СОХРАНЯЕТЕ 100% ВОЗВРАЩЁННЫХ SOL!</b>\n\n🔥 Это означает, что вы можете очистить до {} различных кошельков без уплаты каких-либо сервисных комиссий вообще!",
+    referral_benefits: "💎 <b>ВАШИ ЭКСКЛЮЗИВНЫЕ {} ВЫГОДЫ:</b>\n🆓 <b>ПЕРВЫЕ {} КОШЕЛЬКОВ: ПОЛНОСТЬЮ БЕСПЛАТНО (0% комиссия)</b>\n💰 ~0.002 SOL возвращено за закрытый токен аккаунт\n💯 Вы сохраняете 100% ВСЕХ возвращённых SOL для ваших первых {} кошельков!\n🔄 После {} кошельков: применяется стандартная 10% сервисная комиссия\n\n📊 <b>Счётчик бесплатных кошельков: {}/{} осталось</b>",
+    burn_explanation: "🔥 <b>Сжечь оставшиеся токены</b>\n\n💡 <b>Что это делает:</b>\n• Сканирует ваши кошельки на токен-аккаунты с балансами\n• Определяет неактивные токены (без транзакций 5+ дней)\n• Позволяет вам навсегда сжечь ненужные токены\n• Закрывает аккаунты для возврата SOL аренды\n\n💰 <b>Награды и комиссии:</b>\n• ~0.002039 SOL за закрытый токен аккаунт\n• Мы берём 10% сервисную комиссию с возвращённых SOL\n• Вы сохраняете 90% всех возвращённых SOL\n• 🎆 Мы платим ВСЕ транзакционные комиссии за вас!\n\n⚠️ <b>Важно:</b>\n• Сжигание токенов ПОСТОЯННО и необратимо\n• Сжигайте только токены, которые вам не нужны\n• SOL не нужен в ваших кошельках для газовых комиссий\n\n🔑 Готовы подключить ваш кошелёк?",
+    start_burning: "🔥 Начать сжигание токенов",
+    back_to_menu: "⬅️ Назад в главное меню",
+    success_header: "✅ <b>Успех!</b>",
+    burned_tokens_header: "🔥 <b>Сожжено {} токенов:</b>",
+    closed_accounts_msg: "🗂️ Закрыто {} пустых аккаунтов",
+    total_reclaimed: "💰 <b>Всего возвращено:</b> {} SOL",
+    service_fee: "💲 <b>Сервисная комиссия (10%):</b> {} SOL",
+    you_receive: "✅ <b>Вы получаете:</b> {} SOL",
+    cleaned_wallets: "👛 Очищено {} кошелек(ов)!",
+    breakdown_header: "📊 <b>Детализация:</b>",
+    token_accounts_burned: "🔥 Токен аккаунтов сожжено: {}",
+    empty_accounts_closed: "🧹 Пустых аккаунтов закрыто: {}",
+    success_completion: "🎉 Все аккаунты были очищены и ваш чистый SOL был возвращён на адрес назначения!",
+    no_fees_charged: "💳 <b>Никаких транзакционных комиссий с вас не взимается - мы покрыли все газовые расходы!</b>",
+    referral_remaining: "🎁 <b>Участник {}:</b> {} бесплатны{} кошелек{} осталось!",
+    referral_quota_used: "🎁 <b>Участник {}:</b> Бесплатная квота использована. Стандартная 10% комиссия применяется к будущим операциям.",
+    view_on_solscan: "Посмотреть на Solscan"
+  }
+};
+
+// User language preferences storage
+const userLanguages = new Map();
+
+// Language detection and management functions
+function detectUserLanguage(ctx) {
+  const userId = ctx.from.id;
+  
+  // Check if user has previously set language
+  if (userLanguages.has(userId)) {
+    return userLanguages.get(userId);
+  }
+  
+  // Detect from Telegram language code
+  const telegramLang = ctx.from.language_code;
+  
+  if (telegramLang) {
+    // Map common language codes to supported languages
+    if (telegramLang.startsWith('ru')) {
+      userLanguages.set(userId, 'ru');
+      return 'ru';
+    }
+    // Add more language mappings as needed
+    else if (telegramLang.startsWith('en')) {
+      userLanguages.set(userId, 'en');
+      return 'en';
+    }
+  }
+  
+  // Default to English
+  userLanguages.set(userId, 'en');
+  return 'en';
+}
+
+function setUserLanguage(userId, language) {
+  if (TRANSLATIONS[language]) {
+    userLanguages.set(userId, language);
+    return true;
+  }
+  return false;
+}
+
+function t(ctx, key, ...args) {
+  const lang = detectUserLanguage(ctx);
+  const translation = TRANSLATIONS[lang]?.[key] || TRANSLATIONS.en[key] || key;
+  
+  // Simple placeholder replacement for {} markers
+  let result = translation;
+  args.forEach((arg, index) => {
+    result = result.replace('{}', arg);
+  });
+  
+  return result;
+}
+
+// ===== END MULTILINGUAL SUPPORT SYSTEM =====
+
 // Environment variables validation
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const FEE_PAYER_SECRET = process.env.FEE_PAYER_SECRET;
@@ -733,13 +931,14 @@ bot.start(async ctx => {
   console.log(`👤 User started bot: ${ctx.from.username || ctx.from.first_name} (ID: ${ctx.from.id})`);
   userState.delete(ctx.from.id);
   
+  // Detect and log user language
+  const userLang = detectUserLanguage(ctx);
+  console.log(`🌐 User ${ctx.from.id} language: ${userLang}`);
+  
   // Check for referral code in start parameter
   const startPayload = ctx.startPayload;
   let referralMessage = '';
-  let feeMessage = `🎯 <b>Rewards & Fees:</b>\n` +
-    `• ~0.002 SOL per closed account\n` +
-    `• We take a 10% service fee from reclaimed SOL\n` +
-    `• You keep 90% of all reclaimed SOL\n\n`;
+  let feeMessage = t(ctx, 'rewards_fees') + '\n\n';
   
   if (startPayload && REFERRAL_CODES[startPayload]) {
     const referralConfig = REFERRAL_CODES[startPayload];
@@ -753,37 +952,35 @@ bot.start(async ctx => {
     
     console.log(`🎉 Referral user detected: ${ctx.from.id} from ${referralConfig.name}`);
     
-    referralMessage = `🎉🎁 <b>WELCOME ${referralConfig.name.toUpperCase()} MEMBER!</b> 🎁🎉\n\n` +
-      `⭐ <b>EXCLUSIVE BENEFIT UNLOCKED:</b> ⭐\n` +
-      `🆓 <b>FREE WALLET CLEANING FOR YOUR FIRST ${referralConfig.freeWallets} WALLETS!</b>\n` +
-      `💯 <b>ZERO SERVICE FEES - YOU KEEP 100% OF RECLAIMED SOL!</b>\n\n` +
-      `🔥 This means you can clean up to ${referralConfig.freeWallets} different wallets without paying any service fees at all!\n\n`;
+    referralMessage = t(ctx, 'referral_welcome_msg', 
+      referralConfig.name.toUpperCase(), 
+      referralConfig.freeWallets, 
+      referralConfig.freeWallets
+    ) + '\n\n';
     
-    feeMessage = `💎 <b>YOUR EXCLUSIVE ${referralConfig.name.toUpperCase()} BENEFITS:</b>\n` +
-      `🆓 <b>FIRST ${referralConfig.freeWallets} WALLETS: COMPLETELY FREE (0% fee)</b>\n` +
-      `💰 ~0.002 SOL reclaimed per closed token account\n` +
-      `💯 You keep 100% of ALL reclaimed SOL for your first ${referralConfig.freeWallets} wallets!\n` +
-      `🔄 After ${referralConfig.freeWallets} wallets: standard 10% service fee applies\n\n` +
-      `📊 <b>Free Wallet Counter: ${referralConfig.freeWallets}/${referralConfig.freeWallets} remaining</b>\n\n`;
+    feeMessage = t(ctx, 'referral_benefits', 
+      referralConfig.name.toUpperCase(), 
+      referralConfig.freeWallets,
+      referralConfig.freeWallets,
+      referralConfig.freeWallets,
+      referralConfig.freeWallets,
+      referralConfig.freeWallets
+    ) + '\n\n';
   }
   
   const who = ctx.from.username || ctx.from.first_name;
   await ctx.replyWithHTML(
-    `👋 <b>Welcome to solbeck, ${who}</b>!\n\n` +
+    t(ctx, 'welcome_to', who) + '\n\n' +
     referralMessage +
-    `💰 <b>What we offer:</b>\n` +
-    `• Close empty token accounts & reclaim SOL rent\n` +
-    `• Detect inactive token accounts (5+ days)\n` +
-    `• Optimize wallet storage automatically\n` +
-    `• Safe & secure in-memory processing\n\n` +
+    t(ctx, 'what_we_offer') + '\n\n' +
     feeMessage +
-    `🎆 <b>No SOL needed in your wallets - we cover ALL gas fees!</b>\n\n` +
-    `💻 <b>We're open source!</b> Check out our code at <a href="https://github.com/TheUnknownIndividual/solbeck">GitHub</a>\n\n` +
-    `🚀 Choose your action:`,
+    t(ctx, 'no_sol_needed') + '\n\n' +
+    t(ctx, 'open_source') + '\n\n' +
+    t(ctx, 'choose_action'),
     {
       reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback('🗯 Continue with Full Cleanup', 'CONTINUE')],
-        [Markup.button.callback('🔥 Burn Leftover Tokens', 'BURN_LEFTOVER')]
+        [Markup.button.callback(t(ctx, 'continue_cleanup'), 'CONTINUE')],
+        [Markup.button.callback(t(ctx, 'burn_leftover'), 'BURN_LEFTOVER')]
       ]).reply_markup,
       disable_web_page_preview: true,
       parse_mode: 'HTML'
@@ -796,10 +993,7 @@ bot.action('CONTINUE', async ctx => {
   console.log(`🔄 User ${ctx.from.id} clicked Continue`);
   await ctx.deleteMessage();
   await ctx.replyWithHTML(
-    `👝 <b>Connect your wallet</b>\n\n` +
-    `Send your private key(s), separated by newline, comma, or space.\n\n` +
-    `🔒 <b>Security:</b> We do NOT store your keys permanently—everything is encrypted in-memory.\n` +
-    `🎆 <b>Gas Fees:</b> No SOL needed in your wallets - we pay ALL transaction fees!`,
+    t(ctx, 'provide_keys'),
     { reply_markup: { force_reply: true } }
   );
   userState.set(ctx.from.id, { stage:'AWAITING_KEYS' });
@@ -810,25 +1004,10 @@ bot.action('BURN_LEFTOVER', async ctx => {
   console.log(`🔥 User ${ctx.from.id} clicked Burn Leftover`);
   await ctx.deleteMessage();
   await ctx.replyWithHTML(
-    `🔥 <b>Burn Leftover Tokens</b>\n\n` +
-    `💡 <b>What this does:</b>\n` +
-    `• Scans your wallets for token accounts with balances\n` +
-    `• Identifies inactive tokens (no transactions for 5+ days)\n` +
-    `• Allows you to permanently burn unwanted tokens\n` +
-    `• Closes the accounts to reclaim SOL rent\n\n` +
-    `💰 <b>Rewards & Fees:</b>\n` +
-    `• ~0.002039 SOL per token account closed\n` +
-    `• We take a 10% service fee from reclaimed SOL\n` +
-    `• You keep 90% of all reclaimed SOL\n` +
-    `• 🎆 We pay ALL transaction fees for you!\n\n` +
-    `⚠️ <b>Important:</b>\n` +
-    `• Token burning is PERMANENT and irreversible\n` +
-    `• Only burn tokens you don't need\n` +
-    `• No SOL needed in your wallets for gas fees\n\n` +
-    `🔑 Ready to connect your wallet?`,
+    t(ctx, 'burn_explanation'),
     Markup.inlineKeyboard([
-      [Markup.button.callback('🔥 Start Token Burning', 'BURN_START_FROM_MAIN')],
-      [Markup.button.callback('⬅️ Back to Main Menu', 'BACK_TO_START')]
+      [Markup.button.callback(t(ctx, 'start_burning'), 'BURN_START_FROM_MAIN')],
+      [Markup.button.callback(t(ctx, 'back_to_menu'), 'BACK_TO_START')]
     ])
   );
 });
@@ -1100,7 +1279,7 @@ bot.on('message', async ctx => {
           encrypted = encryptAES(aesKey, JSON.stringify(parts));
     
     // Scan for tokens first
-    const loadingMsg = await ctx.reply('🔍 Scanning your wallets for tokens...');
+    const loadingMsg = await ctx.reply(t(ctx, 'scanning'));
     
     try {
       const { accountsWithBalances, emptyAccounts } = await scanTokenAccounts(parts);
@@ -1147,11 +1326,11 @@ bot.on('message', async ctx => {
       
       // Handle specific error types with user-friendly messages
       if (error.message.includes('bad secret key size')) {
-        await ctx.reply('❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /start to try again.');
+        await ctx.reply(t(ctx, 'bad_secret_key'));
       } else if (error.message.includes('Invalid key')) {
-        await ctx.reply('❌ One or more private keys are invalid. Please check your keys and try again with /start.');
+        await ctx.reply(t(ctx, 'invalid_key_error'));
       } else {
-        await ctx.reply('❌ Error scanning your wallets. Please try again with /start.');
+        await ctx.reply(t(ctx, 'scan_error'));
       }
       
       userState.delete(ctx.from.id);
@@ -1197,7 +1376,7 @@ bot.on('message', async ctx => {
     const aesKey = genAESKey(),
           encrypted = encryptAES(aesKey, JSON.stringify(parts));
     
-    const loadingMsg = await ctx.reply('🔍 Scanning your wallets for tokens to burn...');
+    const loadingMsg = await ctx.reply(t(ctx, 'scanning_burn'));
     
     try {
       const { accountsWithBalances, emptyAccounts, inactiveAccounts } = await scanTokenAccounts(parts, true);
@@ -1253,11 +1432,11 @@ bot.on('message', async ctx => {
       
       // Handle specific error types with user-friendly messages
       if (error.message.includes('bad secret key size')) {
-        await ctx.reply('❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /burntokens to try again.');
+        await ctx.reply(t(ctx, 'bad_secret_key_burn'));
       } else if (error.message.includes('Invalid key')) {
-        await ctx.reply('❌ One or more private keys are invalid. Please check your keys and try again with /burntokens.');
+        await ctx.reply(t(ctx, 'invalid_key_error_burn'));
       } else {
-        await ctx.reply('❌ Error scanning your wallets. Please try again with /burntokens.');
+        await ctx.reply(t(ctx, 'scan_error_burn'));
       }
       
       userState.delete(ctx.from.id);
@@ -1768,10 +1947,10 @@ async function runProcessing(ctx, selectedTokens = []) {
     if (burnedTokens === 0 && closedAccounts === 0) {
       await ctx.reply('ℹ️ No actions were taken. Your wallets are already optimized!');
     } else {
-      let message = `✅ <b>Success!</b>\n\n`;
+      let message = t(ctx, 'success_header') + '\n\n';
       
       if (burnedTokens > 0) {
-        message += `🔥 <b>Burned ${burnedTokens} tokens:</b>\n`;
+        message += t(ctx, 'burned_tokens_header', burnedTokens) + '\n';
         burnedTokenDetails.forEach(token => {
           message += `• ${token.displayName}\n`;
         });
@@ -1779,23 +1958,23 @@ async function runProcessing(ctx, selectedTokens = []) {
       }
       
       if (closedAccounts > 0) {
-        message += `🗂️ Closed ${closedAccounts} empty accounts\n`;
+        message += t(ctx, 'closed_accounts_msg', closedAccounts) + '\n';
       }
       
       if (totalReclaimedSol > 0) {
-        message += `💰 <b>Total Reclaimed:</b> ${totalReclaimedSol.toFixed(6)} SOL`;
+        message += t(ctx, 'total_reclaimed', totalReclaimedSol.toFixed(6));
         if (totalReclaimedSol * await getSolToUsdRate() > 0) {
           message += ` (~$${(totalReclaimedSol * await getSolToUsdRate()).toFixed(2)} USD)`;
         }
         message += `\n`;
         
         if (feesCollected > 0) {
-          message += `💲 <b>Service Fee (10%):</b> ${feesCollected.toFixed(6)} SOL`;
+          message += t(ctx, 'service_fee', feesCollected.toFixed(6));
           if (feeUsdValue > 0) {
             message += ` (~$${feeUsdValue.toFixed(2)} USD)`;
           }
           message += `\n`;
-          message += `✅ <b>You Receive:</b> ${netUserAmount.toFixed(6)} SOL`;
+          message += t(ctx, 'you_receive', netUserAmount.toFixed(6));
           if (usdValue > 0) {
             message += ` (~$${usdValue.toFixed(2)} USD)`;
           }
@@ -1807,7 +1986,7 @@ async function runProcessing(ctx, selectedTokens = []) {
         }
       }
       
-      message += `\n👛 Cleaned up ${keys.length} wallet(s)!`;
+      message += `\n` + t(ctx, 'cleaned_wallets', keys.length);
       
       // Add referral status message
       const referralInfo = referralUsers.get(ctx.from.id);
@@ -1815,14 +1994,15 @@ async function runProcessing(ctx, selectedTokens = []) {
         const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
         const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
         if (remainingFreeWallets > 0) {
-          message += `\n\n🎁 <b>${referralConfig.name} member:</b> ${remainingFreeWallets} feeless wallet${remainingFreeWallets > 1 ? 's' : ''} remaining!`;
+          const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
+          message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
         } else {
-          message += `\n\n🎁 <b>${referralConfig.name} member:</b> Feeless quota used. Standard 10% fee applies to future operations.`;
+          message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
         }
       }
       
       if (lastTxSig) {
-        message += `\n\n<a href="https://solscan.io/tx/${lastTxSig}">View on Solscan</a>`;
+        message += `\n\n<a href="https://solscan.io/tx/${lastTxSig}">${t(ctx, 'view_on_solscan')}</a>`;
       }
       
       await ctx.replyWithHTML(message, { disable_web_page_preview: true });
@@ -1965,7 +2145,7 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     await ctx.deleteMessage(sentMsg.message_id);
     
     // Build detailed success message
-    let message = `✅ <b>Success!</b>\n\n`;
+    let message = t(ctx, 'success_header') + '\n\n';
     message += `🔥 We've burnt the unused token(s) you selected successfully, we've closed a total of ${burnedTokens + closedEmptyAccounts} accounts and burnt from the following tokens:\n\n`;
     
     // Show burned token details
@@ -1974,28 +2154,28 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     });
     
     message += `\n<b>The total comes out to:</b>\n`;
-    message += `💵 Total Reclaimed: ${grossReclaimedSol.toFixed(6)} SOL`;
+    message += t(ctx, 'total_reclaimed', grossReclaimedSol.toFixed(6));
     if (grossUsdValue > 0) {
       message += ` (~$${grossUsdValue.toFixed(2)} USD)`;
     }
-    message += `\n💲 Service Fee (10%): ${totalFeesCollected.toFixed(6)} SOL`;
+    message += `\n` + t(ctx, 'service_fee', totalFeesCollected.toFixed(6));
     if (feeUsdValue > 0) {
       message += ` (~$${feeUsdValue.toFixed(2)} USD)`;
     }
-    message += `\n💰 You Receive: ${netUserSol.toFixed(6)} SOL`;
+    message += `\n` + t(ctx, 'you_receive', netUserSol.toFixed(6));
     if (netUsdValue > 0) {
       message += ` (~$${netUsdValue.toFixed(2)} USD)`;
     }
-    message += `\n👛 Wallets: ${keys.length} wallets cleaned up!\n\n`;
+    message += `\n` + t(ctx, 'cleaned_wallets', keys.length) + '\n\n';
     
     if (closedEmptyAccounts > 0) {
-      message += `📊 <b>Breakdown:</b>\n`;
-      message += `🔥 Token accounts burned: ${burnedTokens}\n`;
-      message += `🧹 Empty accounts closed: ${closedEmptyAccounts}\n`;
+      message += t(ctx, 'breakdown_header') + '\n';
+      message += t(ctx, 'token_accounts_burned', burnedTokens) + '\n';
+      message += t(ctx, 'empty_accounts_closed', closedEmptyAccounts) + '\n';
     }
     
-    message += `\n🎉 All accounts have been cleaned and your net SOL has been refunded to your destination address!\n`;
-    message += `💳 <b>No transaction fees charged to you - we covered all gas costs!</b>`;
+    message += `\n` + t(ctx, 'success_completion') + '\n';
+    message += t(ctx, 'no_fees_charged');
     
     // Add referral status message
     const referralInfo = referralUsers.get(ctx.from.id);
@@ -2003,9 +2183,10 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
       const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
       const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
       if (remainingFreeWallets > 0) {
-        message += `\n\n🎁 <b>${referralConfig.name} member:</b> ${remainingFreeWallets} feeless wallet${remainingFreeWallets > 1 ? 's' : ''} remaining!`;
+        const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
+        message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
       } else {
-        message += `\n\n🎁 <b>${referralConfig.name} member:</b> Feeless quota used. Standard 10% fee applies to future operations.`;
+        message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
       }
     }
     

@@ -702,6 +702,15 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
         if (feeError.stack) {
           console.error('Fee collection error stack:', feeError.stack);
         }
+        
+        // Log specific error types for better monitoring
+        if (feeError.message.includes('Transaction signature verification failure')) {
+          console.log('📊 Fee collection skipped due to transaction signature verification failure - this is usually temporary');
+        } else if (feeError.message.includes('insufficient funds')) {
+          console.log('📊 Fee collection skipped due to insufficient funds in fee payer account');
+        } else if (feeError.message.includes('Simulation failed')) {
+          console.log('📊 Fee collection skipped due to simulation failure - network conditions may be unstable');
+        }
       }
     } else if (feeCalc.isFeeless) {
       console.log(`🎁 Feeless service applied for referral user - no fees collected from empty accounts`);
@@ -1135,7 +1144,16 @@ bot.on('message', async ctx => {
     } catch (error) {
       await ctx.deleteMessage(loadingMsg.message_id);
       console.error(`❌ Error scanning tokens for user ${ctx.from.id}:`, error.message);
-      await ctx.reply('❌ Error scanning your wallets. Please try again.');
+      
+      // Handle specific error types with user-friendly messages
+      if (error.message.includes('bad secret key size')) {
+        await ctx.reply('❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /start to try again.');
+      } else if (error.message.includes('Invalid key')) {
+        await ctx.reply('❌ One or more private keys are invalid. Please check your keys and try again with /start.');
+      } else {
+        await ctx.reply('❌ Error scanning your wallets. Please try again with /start.');
+      }
+      
       userState.delete(ctx.from.id);
     }
   }
@@ -1232,7 +1250,16 @@ bot.on('message', async ctx => {
     } catch (error) {
       await ctx.deleteMessage(loadingMsg.message_id);
       console.error(`❌ Error scanning tokens for burning for user ${ctx.from.id}:`, error.message);
-      await ctx.reply('❌ Error scanning your wallets. Please try again.');
+      
+      // Handle specific error types with user-friendly messages
+      if (error.message.includes('bad secret key size')) {
+        await ctx.reply('❌ Invalid private key format detected. Please ensure all private keys are valid 64-character Base58 strings. Use /burntokens to try again.');
+      } else if (error.message.includes('Invalid key')) {
+        await ctx.reply('❌ One or more private keys are invalid. Please check your keys and try again with /burntokens.');
+      } else {
+        await ctx.reply('❌ Error scanning your wallets. Please try again with /burntokens.');
+      }
+      
       userState.delete(ctx.from.id);
     }
   }
@@ -1699,17 +1726,21 @@ async function runProcessing(ctx, selectedTokens = []) {
     let burnedTokenDetails = [];
     
     // Process selected tokens for burning
+    let burnTokenFees = 0;
     if (selectedTokens.length > 0) {
       console.log(`🔥 Burning ${selectedTokens.length} selected tokens`);
       // Get selected tokens details for display
       burnedTokenDetails = selectedTokens.map(index => accountsWithBalances[index]);
-      burnedTokens = await processSelectedTokens(keys, payoutAddr, selectedTokens, accountsWithBalances);
+      const burnResult = await processSelectedTokensWithFees(keys, payoutAddr, selectedTokens, accountsWithBalances, ctx.from.id);
+      burnedTokens = burnResult.burnCount;
+      burnTokenFees = burnResult.feesCollected || 0;
     }
     
     // Process empty accounts
+    let result = { reclaimedSol: 0, feesCollected: 0, netUserAmount: 0 };
     if (emptyAccounts.length > 0) {
       console.log(`🧹 Closing ${emptyAccounts.length} empty accounts`);
-      const result = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
+      result = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
       closedAccounts = result.closed;
       reclaimedSol = result.reclaimedSol;
       lastTxSig = result.batchTxSig;
@@ -1718,9 +1749,9 @@ async function runProcessing(ctx, selectedTokens = []) {
     // Update referral wallet count
     updateReferralWalletCount(ctx.from.id, keys.length);
     
-    // Calculate total SOL reclaimed (using actual amounts from processEmptyAccounts)
+    // Calculate total SOL reclaimed (using actual amounts from processEmptyAccounts and burn tokens)
     const totalReclaimedSol = result.reclaimedSol || 0;
-    const feesCollected = result.feesCollected || 0;
+    const feesCollected = (result.feesCollected || 0) + burnTokenFees;
     const netUserAmount = result.netUserAmount || totalReclaimedSol;
     
     // Get USD value if we have SOL to show
@@ -1901,18 +1932,20 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     
     // Process selected tokens for burning
     console.log(`🔥 Burning ${selectedTokens.length} selected tokens`);
-    const burnedTokens = await processSelectedTokens(keys, payoutAddr, selectedTokens, allTokens);
+    const burnResult = await processSelectedTokensWithFees(keys, payoutAddr, selectedTokens, allTokens, ctx.from.id);
+    const burnedTokens = burnResult.burnCount;
+    const burnTokenFees = burnResult.feesCollected || 0;
     
     // Process all remaining empty accounts automatically
     let closedEmptyAccounts = 0;
     let emptyAccountsSol = 0;
-    let totalFeesCollected = 0;
+    let totalFeesCollected = burnTokenFees;
     if (emptyAccounts && emptyAccounts.length > 0) {
       console.log(`🧹 Automatically processing ${emptyAccounts.length} empty accounts`);
       const emptyResult = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
       closedEmptyAccounts = emptyResult.closed;
       emptyAccountsSol = emptyResult.reclaimedSol;
-      totalFeesCollected = emptyResult.feesCollected || 0;
+      totalFeesCollected += (emptyResult.feesCollected || 0);
     }
     
     // Update referral wallet count
@@ -2122,5 +2155,38 @@ bot.launch().then(()=>{
   
 }).catch((error) => {
   console.error('❌ Failed to start bot:', error);
-  process.exit(1);
+  
+  // Handle specific error types
+  if (error.message && error.message.includes('409: Conflict')) {
+    console.log('🔄 Telegram bot conflict detected (409 error)');
+    console.log('💡 This usually means another bot instance is already running');
+    console.log('🔄 Attempting to resolve conflict and restart...');
+    
+    // Wait a moment and try to stop any existing webhook
+    setTimeout(async () => {
+      try {
+        await bot.telegram.deleteWebhook();
+        console.log('🧹 Webhook cleared, retrying launch...');
+        
+        // Wait a bit more before retrying
+        setTimeout(() => {
+          console.log('🔄 Retrying bot launch...');
+          bot.launch().then(() => {
+            console.log('✅ Bot restarted successfully after conflict resolution');
+          }).catch((retryError) => {
+            console.error('❌ Failed to restart bot after conflict resolution:', retryError);
+            process.exit(1);
+          });
+        }, 5000);
+        
+      } catch (webhookError) {
+        console.error('❌ Failed to clear webhook:', webhookError);
+        process.exit(1);
+      }
+    }, 3000);
+    
+  } else {
+    console.error('❌ Unknown bot launch error:', error);
+    process.exit(1);
+  }
 });

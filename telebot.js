@@ -2153,6 +2153,7 @@ async function runProcessing(ctx, selectedTokens = []) {
     
     // Process selected tokens for burning
     let burnTokenFees = 0;
+    let burnedTokensSol = 0;
     if (selectedTokens.length > 0) {
       console.log(`🔥 Burning ${selectedTokens.length} selected tokens`);
       // Get selected tokens details for display
@@ -2160,6 +2161,7 @@ async function runProcessing(ctx, selectedTokens = []) {
       const burnResult = await processSelectedTokensWithFees(keys, payoutAddr, selectedTokens, accountsWithBalances, ctx.from.id);
       burnedTokens = burnResult.burnCount;
       burnTokenFees = burnResult.feesCollected || 0;
+      burnedTokensSol = (burnResult.actualReclaimedLamports || 0) / 1e9; // Convert lamports to SOL
     }
     
     // Process empty accounts
@@ -2176,9 +2178,9 @@ async function runProcessing(ctx, selectedTokens = []) {
     updateReferralWalletCount(ctx.from.id, keys.length);
     
     // Calculate total SOL reclaimed (using actual amounts from processEmptyAccounts and burn tokens)
-    const totalReclaimedSol = result.reclaimedSol || 0;
+    const totalReclaimedSol = (result.reclaimedSol || 0) + burnedTokensSol;
     const feesCollected = (result.feesCollected || 0) + (burnTokenFees / 1e9); // Convert lamports to SOL
-    const netUserAmount = result.netUserAmount || totalReclaimedSol;
+    const netUserAmount = totalReclaimedSol - feesCollected;
     
     // Get USD value if we have SOL to show
     let usdValue = 0;
@@ -2378,9 +2380,9 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     // Update referral wallet count
     updateReferralWalletCount(ctx.from.id, keys.length);
     
-    // Calculate total reclaimed SOL and fees
-    const tokenAccountsSol = burnedTokens * 0.00203928; // Approximate rent per token account
-    const grossReclaimedSol = tokenAccountsSol + emptyAccountsSol;
+    // Calculate total reclaimed SOL and fees using actual amounts
+    const actualBurnedSol = (burnResult.actualReclaimedLamports || 0) / 1e9; // Convert actual lamports to SOL
+    const grossReclaimedSol = actualBurnedSol + emptyAccountsSol;
     const netUserSol = grossReclaimedSol - totalFeesCollected; // After fees
     
     // Get USD value

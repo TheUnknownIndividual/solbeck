@@ -419,8 +419,17 @@ const REFERRAL_CODES = {
     name: 'Magnum Community',
     freeWallets: 10,
     description: 'Magnum Community members get feeless service for first 10 wallets!'
+  },
+  'cryptictradez': {
+    name: 'Cryptic Tradez',
+    freeWallets: 10,
+    description: 'Cryptic Tradez members get feeless service for first 10 wallets!'
+  },
+  'combustion': {
+    name: 'Combustion',
+    freeWallets: 10,
+    description: 'Combustion members get feeless service for first 10 wallets!'
   }
-  // Add more referral codes here as needed
 };
 
 // Check if user is eligible for feeless service

@@ -1493,6 +1493,9 @@ bot.command('stats', async ctx => {
       message += `• Reclaimed: ${reclaimedSol.toFixed(6)} SOL\n`;
     }
     
+    // Add disclaimer
+    message += `\n📝 <b>Note:</b> These statistics are estimated and may contain inaccuracies due to network variations, price fluctuations, and data processing differences.`;
+    
     console.log('📊 Sending stats message...');
     await ctx.replyWithHTML(message);
     console.log('✅ Stats sent successfully');
@@ -1501,6 +1504,117 @@ bot.command('stats', async ctx => {
     console.error('❌ Error getting comprehensive stats:', error.message);
     console.error('Stack trace:', error.stack);
     await ctx.reply(t(ctx, 'stats_error'));
+  }
+});
+
+// Private user statistics command
+bot.command('mystats', async ctx => {
+  console.log(`📊 User ${ctx.from.id} requested personal stats`);
+  
+  try {
+    const STATS_DIR = 'stats';
+    await fs.mkdir(STATS_DIR, { recursive: true });
+    
+    // Get all stat files for this specific user
+    const allFiles = await fs.readdir(STATS_DIR);
+    const userFiles = allFiles.filter(file => file.startsWith(`${ctx.from.id}_`) || file === `${ctx.from.id}.json`);
+    
+    if (userFiles.length === 0) {
+      await ctx.reply('📊 No statistics found. Complete your first operation to see your stats!');
+      return;
+    }
+    
+    // Calculate user's personal statistics
+    let userStats = {
+      totalOperations: 0,
+      totalBurnOperations: 0,
+      totalCleanupOperations: 0,
+      totalSolEarned: 0,
+      totalSolGross: 0,
+      totalFeesCollected: 0,
+      totalWallets: 0,
+      totalTokensBurned: 0,
+      totalAccountsClosed: 0,
+      totalEmptyAccountsClosed: 0,
+      firstOperation: null,
+      lastOperation: null,
+      totalUsdEarned: 0
+    };
+    
+    // Process each of the user's stat files
+    for (const file of userFiles) {
+      try {
+        const data = JSON.parse(await fs.readFile(path.join(STATS_DIR, file), 'utf8'));
+        
+        userStats.totalOperations++;
+        userStats.totalSolEarned += data.earnedSol || 0;
+        userStats.totalSolGross += data.grossSol || data.earnedSol || 0;
+        userStats.totalFeesCollected += data.feesCollected || 0;
+        userStats.totalWallets += data.wallets || 0;
+        userStats.totalTokensBurned += data.burnedTokens || 0;
+        userStats.totalAccountsClosed += data.closedAccounts || 0;
+        userStats.totalEmptyAccountsClosed += data.emptyAccountsClosed || 0;
+        userStats.totalUsdEarned += data.usdValue || 0;
+        
+        // Track operation types
+        if (data.burnOnly) {
+          userStats.totalBurnOperations++;
+        } else {
+          userStats.totalCleanupOperations++;
+        }
+        
+        // Track first and last operations
+        if (!userStats.firstOperation || new Date(data.timestamp) < new Date(userStats.firstOperation)) {
+          userStats.firstOperation = data.timestamp;
+        }
+        if (!userStats.lastOperation || new Date(data.timestamp) > new Date(userStats.lastOperation)) {
+          userStats.lastOperation = data.timestamp;
+        }
+      } catch (error) {
+        console.error(`Error processing user stat file ${file}:`, error.message);
+      }
+    }
+    
+    // Get current SOL price for USD calculations
+    const solToUsd = await getSolToUsdRate();
+    const currentSolValue = userStats.totalSolEarned * solToUsd;
+    
+    // Build personal stats message
+    let message = `👤 <b>Your Personal Statistics</b>\n`;
+    message += `🔒 <i>(Private - only visible to you)</i>\n\n`;
+    
+    message += `📈 <b>Your Activity</b>\n`;
+    message += `• Total Operations: ${userStats.totalOperations}\n`;
+    message += `• Burn-Only Operations: ${userStats.totalBurnOperations}\n`;
+    message += `• Full Cleanup Operations: ${userStats.totalCleanupOperations}\n`;
+    message += `• Total Wallets Processed: ${userStats.totalWallets}\n\n`;
+    
+    message += `💰 <b>Your Earnings</b>\n`;
+    message += `• Total SOL Earned: ${userStats.totalSolEarned.toFixed(6)} SOL\n`;
+    message += `• Current USD Value: ~$${currentSolValue.toFixed(2)}\n`;
+    message += `• Total SOL Processed: ${userStats.totalSolGross.toFixed(6)} SOL\n`;
+    message += `• Total Fees Paid: ${userStats.totalFeesCollected.toFixed(6)} SOL\n\n`;
+    
+    message += `🏆 <b>Your Achievements</b>\n`;
+    message += `• Total Tokens Burned: ${userStats.totalTokensBurned}\n`;
+    message += `• Total Accounts Closed: ${userStats.totalAccountsClosed}\n`;
+    message += `• Empty Accounts Closed: ${userStats.totalEmptyAccountsClosed}\n`;
+    message += `• Average SOL per Operation: ${(userStats.totalSolEarned / userStats.totalOperations).toFixed(6)} SOL\n\n`;
+    
+    if (userStats.firstOperation) {
+      message += `📅 <b>Timeline</b>\n`;
+      message += `• First Operation: ${new Date(userStats.firstOperation).toLocaleDateString()}\n`;
+      message += `• Last Operation: ${new Date(userStats.lastOperation).toLocaleDateString()}\n\n`;
+    }
+    
+    message += `📝 <b>Note:</b> These are your personal statistics and are private to you only. Values are estimated and may contain inaccuracies.`;
+    
+    await ctx.replyWithHTML(message);
+    console.log(`✅ Personal stats sent to user ${ctx.from.id}`);
+    
+  } catch (error) {
+    console.error(`❌ Error getting user stats for ${ctx.from.id}:`, error.message);
+    await ctx.reply('❌ Error retrieving your statistics. Please try again later.');
   }
 });
 
@@ -2280,6 +2394,7 @@ async function runProcessing(ctx, selectedTokens = []) {
           isFeeless: isUserFeeless(ctx.from.id, keys.length),
           totalWalletsProcessed: referralInfo.walletCount + keys.length
         } : null,
+        burnOnly: burnedTokens > 0 && closedAccounts === 0, // True if only burned tokens, no empty accounts closed
         feeRate: FEE_RATE,
         timestamp: new Date().toISOString(),
       };

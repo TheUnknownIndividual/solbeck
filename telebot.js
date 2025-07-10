@@ -1050,6 +1050,15 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
         const feeTx = new VersionedTransaction(feeMessage);
         feeTx.sign([FEE_PAYER, feeDestinationKeypair]);
         
+        // Simulate transaction first to catch errors early
+        console.log('🧪 Simulating fee collection transaction...');
+        const simulation = await conn.simulateTransaction(feeTx);
+        if (simulation.value.err) {
+          console.error('❌ Fee collection simulation failed:', JSON.stringify(simulation.value, null, 2));
+          throw new Error(`Fee collection simulation failed: ${JSON.stringify(simulation.value.err)}`);
+        }
+        console.log('✅ Fee collection simulation successful');
+        
         const feeSig = await conn.sendRawTransaction(feeTx.serialize());
         await confirmByPolling(conn, feeSig);
         
@@ -1512,7 +1521,14 @@ bot.on('message', async ctx => {
     const parts = ctx.message.text.trim().split(/[\s,]+/).filter(Boolean);
     console.log(`📊 Number of keys provided: ${parts.length}`);
     
-    if (parts.some(s=>{ try{bs58.decode(s);return false;}catch{return true;} })) {
+    if (parts.some(s=>{ 
+      try{
+        const decoded = bs58.decode(s);
+        return decoded.length !== 64; // Solana private keys must be 64 bytes
+      } catch{
+        return true;
+      } 
+    })) {
       console.log(`❌ Invalid keys provided by user ${ctx.from.id}`);
       await ctx.reply(t(ctx, 'invalid_key_start'));
       return userState.delete(ctx.from.id);
@@ -1605,7 +1621,14 @@ bot.on('message', async ctx => {
     const parts = ctx.message.text.trim().split(/[\s,]+/).filter(Boolean);
     console.log(`📊 Number of keys provided for burning: ${parts.length}`);
     
-    if (parts.some(s=>{ try{bs58.decode(s);return false;}catch{return true;} })) {
+    if (parts.some(s=>{ 
+      try{
+        const decoded = bs58.decode(s);
+        return decoded.length !== 64; // Solana private keys must be 64 bytes
+      } catch{
+        return true;
+      } 
+    })) {
       console.log(`❌ Invalid keys provided by user ${ctx.from.id} for burning`);
       await ctx.reply(t(ctx, 'invalid_key_burn'));
       return userState.delete(ctx.from.id);
@@ -2131,12 +2154,12 @@ async function runProcessing(ctx, selectedTokens = []) {
     }
     
     // Process empty accounts
-    let result = { reclaimedSol: 0, feesCollected: 0, netUserAmount: 0 };
+    let result = { reclaimedSol: 0, feesCollected: 0, netUserAmount: 0, closed: 0, batchTxSig: null };
     if (emptyAccounts.length > 0) {
       console.log(`🧹 Closing ${emptyAccounts.length} empty accounts`);
       result = await processEmptyAccounts(keys, payoutAddr, emptyAccounts, ctx.from.id);
-      closedAccounts = result.closed;
-      reclaimedSol = result.reclaimedSol;
+      closedAccounts = result.closed || 0;
+      reclaimedSol = result.reclaimedSol || 0;
       lastTxSig = result.batchTxSig;
     }
     
@@ -2504,50 +2527,17 @@ process.on('unhandledRejection', (reason, promise) => {
 bot.launch().then(()=>{
   console.log('🤖 Bot started successfully');
   console.log('📅 Started at:', new Date().toISOString());
-  console.log('🔄 Bot will run continuously...');
-  console.log('🔄 Auto-restart scheduled every 2 hours');
+  console.log('🔄 Bot running under PM2 process manager');
   
-  const startTime = Date.now();
-  const RESTART_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-  
-  // Function to perform graceful restart
-  const gracefulRestart = (reason = 'Scheduled restart') => {
-    console.log(`🔄 ${reason} - shutting down gracefully...`);
-    
-    // Clear any ongoing operations
-    userState.clear();
-    
-    // Stop the bot
-    bot.stop(reason);
-    
-    // Exit after a short delay to allow cleanup
-    setTimeout(() => {
-      console.log('✅ Bot shutdown complete. Process manager will restart...');
-      process.exit(0);
-    }, 3000);
-  };
-  
-  // Schedule automatic restart every 2 hours
-  setTimeout(() => {
-    const uptime = ((Date.now() - startTime) / 1000 / 60 / 60).toFixed(1);
-    gracefulRestart(`Auto-restart after ${uptime} hours`);
-  }, RESTART_INTERVAL);
-  
-  // Monitor memory usage and restart if it gets too high
+  // Monitor memory usage for logging only
   setInterval(() => {
     const memUsage = process.memoryUsage();
     const memUsageMB = Math.round(memUsage.heapUsed / 1024 / 1024);
     
-    // Log memory usage every 30 minutes
-    if (Date.now() - startTime > 0 && (Date.now() - startTime) % (30 * 60 * 1000) < 60000) {
-      console.log(`📊 Memory usage: ${memUsageMB}MB`);
+    if (memUsageMB > 800) { // 800MB threshold
+      console.log(`⚠️ High memory usage: ${memUsageMB}MB`);
     }
-    
-    // Restart if memory usage exceeds 500MB
-    if (memUsageMB > 500) {
-      gracefulRestart(`High memory usage: ${memUsageMB}MB`);
-    }
-  }, 60000); // Check every minute
+  }, 300000); // Check every 5 minutes
   
 }).catch((error) => {
   console.error('❌ Failed to start bot:', error);
@@ -2556,30 +2546,13 @@ bot.launch().then(()=>{
   if (error.message && error.message.includes('409: Conflict')) {
     console.log('🔄 Telegram bot conflict detected (409 error)');
     console.log('💡 This usually means another bot instance is already running');
-    console.log('🔄 Attempting to resolve conflict and restart...');
+    console.log('🔄 Waiting for conflict to resolve...');
     
-    // Wait a moment and try to stop any existing webhook
-    setTimeout(async () => {
-      try {
-        await bot.telegram.deleteWebhook();
-        console.log('🧹 Webhook cleared, retrying launch...');
-        
-        // Wait a bit more before retrying
-        setTimeout(() => {
-          console.log('🔄 Retrying bot launch...');
-          bot.launch().then(() => {
-            console.log('✅ Bot restarted successfully after conflict resolution');
-          }).catch((retryError) => {
-            console.error('❌ Failed to restart bot after conflict resolution:', retryError);
-            process.exit(1);
-          });
-        }, 5000);
-        
-      } catch (webhookError) {
-        console.error('❌ Failed to clear webhook:', webhookError);
-        process.exit(1);
-      }
-    }, 3000);
+    // Wait longer before retrying to avoid conflicts
+    setTimeout(() => {
+      console.log('🔄 Retrying bot launch after conflict...');
+      process.exit(1); // Let PM2 handle the restart
+    }, 10000); // Wait 10 seconds
     
   } else {
     console.error('❌ Unknown bot launch error:', error);

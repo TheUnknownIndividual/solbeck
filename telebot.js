@@ -2013,11 +2013,10 @@ bot.action('TOKEN_BACK_TO_CONSOLIDATION', async ctx => {
   if (!st) return;
 
   await ctx.replyWithHTML(
-    `🤔 <b>Consolidate reclaimed SOL?</b>\n\n` +
-    `Send ALL reclaimed SOL into one address, or return each to its original wallet.`,
+    t(ctx, 'consolidation_question'),
     Markup.inlineKeyboard([
-      Markup.button.callback('✅ Yes', 'CHOICE_YES'),
-      Markup.button.callback('❌ No', 'CHOICE_NO')
+      Markup.button.callback(t(ctx, 'consolidate_yes'), 'CHOICE_YES'),
+      Markup.button.callback(t(ctx, 'consolidate_no'), 'CHOICE_NO')
     ])
   );
 });
@@ -2031,26 +2030,20 @@ bot.action('BURN_BACK_TO_CONSOLIDATION', async ctx => {
   if (st.inactiveAccounts?.length > 0) {
     // Show inactive accounts confirmation again
     await ctx.replyWithHTML(
-      `⏰ <b>Found ${st.inactiveAccounts.length} inactive token accounts!</b>\n\n` +
-      `📊 <b>Summary:</b>\n` +
-      `• Inactive tokens (5+ days): ${st.inactiveAccounts.length}\n` +
-      `• Active tokens: ${st.accountsWithBalances?.length || 0}\n` +
-      `• Empty accounts: ${st.emptyAccounts?.length || 0}\n\n` +
-      `💡 <b>Inactive tokens are often forgotten tokens that can be safely burned.</b>\n\n` +
-      `❓ Would you like to burn all inactive tokens automatically?`,
+      t(ctx, 'inactive_tokens_simple', st.inactiveAccounts.length, st.inactiveAccounts.length, st.accountsWithBalances?.length || 0, st.emptyAccounts?.length || 0),
       Markup.inlineKeyboard([
-        [Markup.button.callback('✅ Yes, burn all inactive', 'BURN_INACTIVE_YES')],
-        [Markup.button.callback('🔍 Let me choose manually', 'BURN_INACTIVE_MANUAL')],
-        [Markup.button.callback('❌ Skip inactive tokens', 'BURN_INACTIVE_SKIP')]
+        [Markup.button.callback(t(ctx, 'yes_burn_inactive'), 'BURN_INACTIVE_YES')],
+        [Markup.button.callback(t(ctx, 'choose_manually'), 'BURN_INACTIVE_MANUAL')],
+        [Markup.button.callback(t(ctx, 'skip_inactive'), 'BURN_INACTIVE_SKIP')]
       ])
     );
   } else {
     // Show consolidation choice
     await ctx.replyWithHTML(
-      `💡 Choose your consolidation preference for reclaimed SOL:`,
+      t(ctx, 'consolidation_question_burn'),
       Markup.inlineKeyboard([
-        Markup.button.callback('✅ Consolidate all SOL', 'BURN_CHOICE_YES'),
-        Markup.button.callback('❌ Keep SOL in wallets', 'BURN_CHOICE_NO')
+        Markup.button.callback(t(ctx, 'consolidate_yes'), 'BURN_CHOICE_YES'),
+        Markup.button.callback(t(ctx, 'consolidate_no'), 'BURN_CHOICE_NO')
       ])
     );
   }
@@ -2368,14 +2361,14 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     
     // Build detailed success message
     let message = t(ctx, 'success_header') + '\n\n';
-    message += `🔥 We've burnt the unused token(s) you selected successfully, we've closed a total of ${burnedTokens + closedEmptyAccounts} accounts and burnt from the following tokens:\n\n`;
+    message += t(ctx, 'burn_selected_processing', burnedTokens + closedEmptyAccounts) + '\n\n';
     
     // Show burned token details
     burnedTokenDetails.forEach(token => {
       message += `• ${token.displayName}\n`;
     });
     
-    message += `\n<b>The total comes out to:</b>\n`;
+    message += `\n<b>` + t(ctx, 'burn_total_breakdown') + `</b>\n`;
     message += t(ctx, 'total_reclaimed', grossReclaimedSol.toFixed(6));
     if (grossUsdValue > 0) {
       message += ` (~$${grossUsdValue.toFixed(2)} USD)`;

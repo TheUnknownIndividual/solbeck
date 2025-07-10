@@ -94,7 +94,86 @@ const TRANSLATIONS = {
     referral_remaining: "🎁 <b>{} member:</b> {} feeless wallet{} remaining!",
     referral_quota_used: "🎁 <b>{} member:</b> Feeless quota used. Standard 10% fee applies to future operations.",
     view_on_solscan: "View on Solscan",
-    language_selector: "🌐 Language / Язык"
+    language_selector: "🌐 Language / Язык",
+    stats_error: "❌ Error retrieving statistics. Please try again later.",
+    invalid_key_start: "❌ Invalid Base58 key detected—please /start again.",
+    wallets_optimized: "ℹ️ No token accounts found to close. Your wallets are already optimized!",
+    invalid_address_start: "❌ Invalid Solana address—please /start again.",
+    invalid_key_burn: "❌ Invalid Base58 key detected—please /burntokens again.",
+    no_tokens_burn: "ℹ️ No tokens found to burn. All your token accounts are already empty!",
+    invalid_address_burn: "❌ Invalid Solana address—please /burntokens again.",
+    provide_sol_address: "📥 Please reply with the SOL address to receive all funds:",
+    no_active_tokens: "ℹ️ No active tokens to process. Operation cancelled.",
+    processing_request: "⏳ Processing your request...",
+    no_actions_taken: "ℹ️ No actions were taken. Your wallets are already optimized!",
+    processing_burn: "🔥 Processing token burning and cleanup...",
+    no_tokens_selected: "❌ No tokens selected for burning.",
+    language_set_english: "🇺🇸 <b>Language set to English!</b>\n\nRestarting bot...",
+    language_set_russian: "🇷🇺 <b>Язык установлен на русский!</b>\n\nПерезапуск бота...",
+    english_button: "🇺🇸 English",
+    back_button: "⬅️ Back / Назад",
+    full_cleanup_button: "🗯 Continue with Full Cleanup",
+    burn_leftover_button: "🔥 Burn Leftover Tokens",
+    start_burning_button: "🔥 Start Token Burning",
+    back_main_menu_button: "⬅️ Back to Main Menu",
+    yes_burn_inactive: "✅ Yes, burn all inactive",
+    choose_manually: "🔍 Let me choose manually",
+    skip_inactive: "❌ Skip inactive tokens",
+    previous_button: "⬅️ Previous",
+    next_button: "➡️ Next",
+    back_consolidation: "⬅️ Back to Consolidation",
+    yes_button: "✅ Yes",
+    no_button: "❌ No",
+    burn_x_tokens_close_y: "🔥 Burn {} tokens & close {} empty accounts",
+    burn_x_tokens: "🔥 Burn {} tokens",
+    skip_burn_close_y: "✅ Skip burning & close {} empty accounts",
+    skip_burning: "✅ Skip burning",
+    tokens_with_balances: "🪙 <b>Found {} token accounts with balances!</b>\n\n⚠️ To close these accounts, we need to burn the tokens first.\n📋 We also found {} empty accounts that can be closed immediately.\n\n💡 Choose your consolidation preference first:",
+    empty_accounts_found: "✅ <b>Found {} empty token accounts!</b>\n\n🎉 All can be closed immediately to reclaim SOL rent.\n\n💡 Choose your consolidation preference:",
+    inactive_tokens_found: "⏰ <b>Found {} inactive token accounts!</b>\n\n📊 <b>Summary:</b>\n• Inactive tokens (5+ days): {}\n• Active tokens: {}\n• Empty accounts: {}\n\n💡 <b>Inactive tokens are often forgotten tokens that can be safely burned.</b>\n\n❓ Would you like to burn all inactive tokens automatically?",
+    active_tokens_only: "🔥 <b>Found {} active tokens!</b>\n\nNo inactive tokens detected. All tokens have recent activity.\n\n💡 Choose your consolidation preference for reclaimed SOL:",
+    burn_command_text: "🔥 <b>Burn Leftover Tokens</b>\n\n💡 <b>What this does:</b>\n• Scans your wallets for token accounts with balances\n• Identifies inactive tokens (no transactions for 5+ days)\n• Allows you to permanently burn unwanted tokens\n• Closes the accounts to reclaim SOL rent\n\n💰 <b>Rewards & Fees:</b>\n• ~0.002039 SOL per token account closed\n• We take a 10% service fee from reclaimed SOL\n• You keep 90% of all reclaimed SOL\n• 🎆 We pay ALL transaction fees for you!\n\n⚠️ <b>Important:</b>\n• Token burning is PERMANENT and irreversible\n• Only burn tokens you don't need\n• No SOL needed in your wallets for gas fees\n\n🔑 Ready to connect your wallet?",
+    burn_selected_processing: "We've burnt the unused token(s) you selected successfully, we've closed a total of {} accounts and burnt from the following tokens:",
+    burn_total_breakdown: "The total comes out to:",
+    processing_active_tokens: "🔥 <b>Processing {} active tokens...</b>\n\n💡 These tokens have recent activity and may be valuable. Please review carefully before burning.\n\n⚠️ Token burning is PERMANENT and irreversible!",
+    select_language: "🌐 <b>Select your language / Выберите язык:</b>",
+    russian_button: "🇷🇺 Русский",
+    back_to_start_msg: "👋 <b>Welcome to SOL Reclaimer, {}!</b>\n\n💰 <b>What we offer:</b>\n• Close empty token accounts & reclaim SOL rent\n• Detect inactive token accounts (5+ days)\n• Optimize wallet storage automatically\n• Safe & secure in-memory processing\n\n🎯 <b>Potential rewards:</b>\n• ~0.002 SOL per closed account\n• Clean, optimized wallet\n• Reduced transaction costs\n\n🚀 Choose your action:",
+    connect_wallet_burn: "🔑 <b>Connect your wallet for token burning</b>\n\nSend your private key(s), separated by newline, comma, or space.\n\n🔒 <b>Security:</b> Keys are encrypted in-memory and never stored permanently.\n🎆 <b>Gas Fees:</b> No SOL needed in your wallets - we pay ALL transaction fees!",
+    tokens_with_balances_simple: "🪙 <b>Found {} token accounts with balances!</b>\n\n⚠️ To close these accounts, we need to burn the tokens first.\n📋 We also found {} empty accounts that can be closed immediately.\n\n💡 Choose your consolidation preference first:",
+    empty_accounts_simple: "✅ <b>Found {} empty token accounts!</b>\n\n🎉 All can be closed immediately to reclaim SOL rent.\n\n💡 Choose your consolidation preference:",
+    inactive_tokens_simple: "⏰ <b>Found {} inactive token accounts!</b>\n\n📊 <b>Summary:</b>\n• Inactive tokens (5+ days): {}\n• Active tokens: {}\n• Empty accounts: {}\n\n💡 <b>Inactive tokens are often forgotten tokens that can be safely burned.</b>\n\n❓ Would you like to burn all inactive tokens automatically?",
+    active_tokens_simple: "🔥 <b>Found {} active tokens!</b>\n\nNo inactive tokens detected. All tokens have recent activity.\n\n💡 Choose your consolidation preference for reclaimed SOL:",
+    consolidation_question: "🤔 <b>Consolidate reclaimed SOL?</b>\n\nSend ALL reclaimed SOL into one address, or return each to its original wallet.",
+    consolidation_question_burn: "💡 Choose your consolidation preference for reclaimed SOL:",
+    selected_inactive_burn: "✅ <b>All {} inactive tokens selected for burning!</b>\n\n💡 Choose your consolidation preference for reclaimed SOL:",
+    manual_token_selection: "🔥 <b>Manual Token Selection</b>\n\n💡 Choose your consolidation preference first:",
+    active_tokens_only_burn: "🔥 <b>Processing {} active tokens only</b>\n\n💡 Choose your consolidation preference:",
+    select_tokens_burn: "🔥 <b>Select tokens to burn</b>\n\n📄 Page {}/{}\n🔢 Showing {}-{} of {} tokens\n✅ Selected: {}\n\n📊 <b>Summary:</b>\n• Tokens with balances: {}\n• Empty accounts to close: {}\n\n⚠️ <b>Warning:</b> Burning tokens is permanent!\n💡 Empty accounts will be closed automatically after burning.",
+    burn_token_selection: "🔥 <b>Select tokens to burn</b>\n\n📄 Page {}/{}\n🔢 Showing {}-{} of {} tokens\n✅ Selected: {}\n\n⏰ Inactive (5+ days): {}\n🟢 Active: {}\n\n⚠️ <b>Warning:</b> Burning tokens is permanent and irreversible!\n💰 Token accounts will be closed and SOL rent will be reclaimed.",
+    connect_wallet_simple: "🔑 <b>Connect your wallet for burning</b>\n\nSend your private key(s), separated by newline, comma, or space.\n\n<b>NOTE:</b> Keys are encrypted in-memory and never stored permanently.",
+    error_token_balance: "❌ Some token accounts still have balances. Please select them for burning first.",
+    error_insufficient_sol: "❌ Insufficient SOL for transaction fees.",
+    error_token_cannot_close: "❌ Token account has a balance and cannot be closed. Select it for burning first.",
+    error_generic: "An error occurred while processing your request.",
+    error_burn_generic: "❌ An error occurred while burning tokens.",
+    error_burn_insufficient: "❌ Insufficient SOL for transaction fees.",
+    error_burn_frozen: "❌ Some tokens are frozen and cannot be burned.",
+    error_burn_ownership: "❌ Invalid account ownership. Please verify your private keys.",
+    processing_request: "⏳ Processing your request...",
+    processing_burn_cleanup: "🔥 Processing token burning and cleanup...",
+    no_active_tokens: "ℹ️ No active tokens to process. Operation cancelled.",
+    no_actions_taken: "ℹ️ No actions were taken. Your wallets are already optimized!",
+    no_tokens_selected: "❌ No tokens selected for burning.",
+    consolidate_sol: "✅ Consolidate all SOL",
+    keep_sol_wallets: "❌ Keep SOL in wallets",
+    previous: "⬅️ Previous",
+    next: "➡️ Next",
+    burn_tokens_close_accounts: "🔥 Burn {} tokens & close {} empty accounts",
+    burn_tokens_only: "🔥 Burn {} tokens",
+    skip_burning_close_accounts: "✅ Skip burning & close {} empty accounts",
+    skip_burning: "✅ Skip burning",
+    back_to_consolidation: "⬅️ Back to Consolidation"
   },
   ru: {
     welcome: "🤖 <b>Добро пожаловать в SolBeck!</b>\n\n🔥 <b>Мульти-кошелёк сжигатель токенов и возвратчик SOL</b>\n\n✨ <b>Что я могу делать:</b>\n• Сжигать нежелательные токены из нескольких кошельков\n• Закрывать пустые токен-аккаунты для возврата SOL аренды\n• Консолидировать SOL из нескольких кошельков\n• Обрабатывать большие партии (до 100 кошельков)\n\n🚀 <b>Готовы оптимизировать свои кошельки?</b>",
@@ -164,7 +243,86 @@ const TRANSLATIONS = {
     referral_remaining: "🎁 <b>Участник {}:</b> {} бесплатны{} кошелек{} осталось!",
     referral_quota_used: "🎁 <b>Участник {}:</b> Бесплатная квота использована. Стандартная 10% комиссия применяется к будущим операциям.",
     view_on_solscan: "Посмотреть на Solscan",
-    language_selector: "🌐 Language / Язык"
+    language_selector: "🌐 Language / Язык",
+    stats_error: "❌ Ошибка получения статистики. Попробуйте позже.",
+    invalid_key_start: "❌ Обнаружен неверный Base58 ключ—пожалуйста, /start снова.",
+    wallets_optimized: "ℹ️ Токен аккаунтов для закрытия не найдено. Ваши кошельки уже оптимизированы!",
+    invalid_address_start: "❌ Неверный Solana адрес—пожалуйста, /start снова.",
+    invalid_key_burn: "❌ Обнаружен неверный Base58 ключ—пожалуйста, /burntokens снова.",
+    no_tokens_burn: "ℹ️ Токенов для сжигания не найдено. Все ваши токен аккаунты уже пусты!",
+    invalid_address_burn: "❌ Неверный Solana адрес—пожалуйста, /burntokens снова.",
+    provide_sol_address: "📥 Пожалуйста, ответьте SOL адресом для получения всех средств:",
+    no_active_tokens: "ℹ️ Активных токенов для обработки нет. Операция отменена.",
+    processing_request: "⏳ Обрабатываю ваш запрос...",
+    no_actions_taken: "ℹ️ Никаких действий не было предпринято. Ваши кошельки уже оптимизированы!",
+    processing_burn: "🔥 Обрабатываю сжигание токенов и очистку...",
+    no_tokens_selected: "❌ Токены для сжигания не выбраны.",
+    language_set_english: "🇺🇸 <b>Language set to English!</b>\n\nRestarting bot...",
+    language_set_russian: "🇷🇺 <b>Язык установлен на русский!</b>\n\nПерезапуск бота...",
+    english_button: "🇺🇸 English",
+    back_button: "⬅️ Назад",
+    full_cleanup_button: "🗯 Продолжить с полной очисткой",
+    burn_leftover_button: "🔥 Сжечь оставшиеся токены",
+    start_burning_button: "🔥 Начать сжигание токенов",
+    back_main_menu_button: "⬅️ Назад в главное меню",
+    yes_burn_inactive: "✅ Да, сжечь все неактивные",
+    choose_manually: "🔍 Позвольте мне выбрать вручную",
+    skip_inactive: "❌ Пропустить неактивные токены",
+    previous_button: "⬅️ Предыдущий",
+    next_button: "➡️ Следующий",
+    back_consolidation: "⬅️ Назад к консолидации",
+    yes_button: "✅ Да",
+    no_button: "❌ Нет",
+    burn_x_tokens_close_y: "🔥 Сжечь {} токенов и закрыть {} пустых аккаунтов",
+    burn_x_tokens: "🔥 Сжечь {} токенов",
+    skip_burn_close_y: "✅ Пропустить сжигание и закрыть {} пустых аккаунтов",
+    skip_burning: "✅ Пропустить сжигание",
+    tokens_with_balances: "🪙 <b>Найдено {} токен аккаунтов с балансами!</b>\n\n⚠️ Чтобы закрыть эти аккаунты, нам нужно сначала сжечь токены.\n📋 Мы также нашли {} пустых аккаунтов, которые можно закрыть немедленно.\n\n💡 Сначала выберите ваши предпочтения консолидации:",
+    empty_accounts_found: "✅ <b>Найдено {} пустых токен аккаунтов!</b>\n\n🎉 Все можно закрыть немедленно для возврата SOL аренды.\n\n💡 Выберите ваши предпочтения консолидации:",
+    inactive_tokens_found: "⏰ <b>Найдено {} неактивных токен аккаунтов!</b>\n\n📊 <b>Сводка:</b>\n• Неактивные токены (5+ дней): {}\n• Активные токены: {}\n• Пустые аккаунты: {}\n\n💡 <b>Неактивные токены часто являются забытыми токенами, которые можно безопасно сжечь.</b>\n\n❓ Хотите ли вы автоматически сжечь все неактивные токены?",
+    active_tokens_only: "🔥 <b>Найдено {} активных токенов!</b>\n\nНеактивных токенов не обнаружено. Все токены имеют недавнюю активность.\n\n💡 Выберите ваши предпочтения консолидации для возвращённых SOL:",
+    burn_command_text: "🔥 <b>Сжечь оставшиеся токены</b>\n\n💡 <b>Что это делает:</b>\n• Сканирует ваши кошельки на токен аккаунты с балансами\n• Определяет неактивные токены (без транзакций 5+ дней)\n• Позволяет вам навсегда сжечь ненужные токены\n• Закрывает аккаунты для возврата SOL аренды\n\n💰 <b>Награды и комиссии:</b>\n• ~0.002039 SOL за закрытый токен аккаунт\n• Мы берём 10% сервисную комиссию с возвращённых SOL\n• Вы сохраняете 90% всех возвращённых SOL\n• 🎆 Мы платим ВСЕ транзакционные комиссии за вас!\n\n⚠️ <b>Важно:</b>\n• Сжигание токенов ПОСТОЯННО и необратимо\n• Сжигайте только токены, которые вам не нужны\n• SOL не нужен в ваших кошельках для газовых комиссий\n\n🔑 Готовы подключить ваш кошелёк?",
+    burn_selected_processing: "Мы успешно сожгли выбранные вами неиспользуемые токены, мы закрыли в общей сложности {} аккаунтов и сожгли следующие токены:",
+    burn_total_breakdown: "Общая сумма составляет:",
+    processing_active_tokens: "🔥 <b>Обрабатываю {} активных токенов...</b>\n\n💡 Эти токены имеют недавнюю активность и могут быть ценными. Пожалуйста, внимательно просмотрите перед сжиганием.\n\n⚠️ Сжигание токенов ПОСТОЯННО и необратимо!",
+    select_language: "🌐 <b>Выберите язык / Select your language:</b>",
+    russian_button: "🇷🇺 Русский",
+    back_to_start_msg: "👋 <b>Добро пожаловать в SOL Reclaimer, {}!</b>\n\n💰 <b>Что мы предлагаем:</b>\n• Закрытие пустых токен-аккаунтов и возврат SOL аренды\n• Обнаружение неактивных токен-аккаунтов (5+ дней)\n• Автоматическая оптимизация хранения кошельков\n• Безопасная обработка в памяти\n\n🎯 <b>Потенциальные награды:</b>\n• ~0.002 SOL за закрытый аккаунт\n• Чистый, оптимизированный кошелёк\n• Снижение затрат на транзакции\n\n🚀 Выберите ваше действие:",
+    connect_wallet_burn: "🔑 <b>Подключите ваш кошелёк для сжигания токенов</b>\n\nОтправьте ваши приватные ключи, разделённые новой строкой, запятой или пробелом.\n\n🔒 <b>Безопасность:</b> Ключи шифруются в памяти и никогда не хранятся постоянно.\n🎆 <b>Газовые сборы:</b> SOL не нужен в ваших кошельках - мы платим ВСЕ транзакционные сборы!",
+    tokens_with_balances_simple: "🪙 <b>Найдено {} токен аккаунтов с балансами!</b>\n\n⚠️ Чтобы закрыть эти аккаунты, нам нужно сначала сжечь токены.\n📋 Мы также нашли {} пустых аккаунтов, которые можно закрыть немедленно.\n\n💡 Сначала выберите ваши предпочтения консолидации:",
+    empty_accounts_simple: "✅ <b>Найдено {} пустых токен аккаунтов!</b>\n\n🎉 Все можно закрыть немедленно для возврата SOL аренды.\n\n💡 Выберите ваши предпочтения консолидации:",
+    inactive_tokens_simple: "⏰ <b>Найдено {} неактивных токен аккаунтов!</b>\n\n📊 <b>Сводка:</b>\n• Неактивные токены (5+ дней): {}\n• Активные токены: {}\n• Пустые аккаунты: {}\n\n💡 <b>Неактивные токены часто являются забытыми токенами, которые можно безопасно сжечь.</b>\n\n❓ Хотите ли вы автоматически сжечь все неактивные токены?",
+    active_tokens_simple: "🔥 <b>Найдено {} активных токенов!</b>\n\nНеактивных токенов не обнаружено. Все токены имеют недавнюю активность.\n\n💡 Выберите ваши предпочтения консолидации для возвращённых SOL:",
+    consolidation_question: "🤔 <b>Консолидировать возвращённые SOL?</b>\n\nОтправить ВСЕ возвращённые SOL на один адрес, или вернуть каждый в свой оригинальный кошелёк.",
+    consolidation_question_burn: "💡 Выберите ваши предпочтения консолидации для возвращённых SOL:",
+    selected_inactive_burn: "✅ <b>Все {} неактивных токенов выбраны для сжигания!</b>\n\n💡 Выберите ваши предпочтения консолидации для возвращённых SOL:",
+    manual_token_selection: "🔥 <b>Ручной выбор токенов</b>\n\n💡 Сначала выберите ваши предпочтения консолидации:",
+    active_tokens_only_burn: "🔥 <b>Обрабатываю только {} активных токенов</b>\n\n💡 Выберите ваши предпочтения консолидации:",
+    select_tokens_burn: "🔥 <b>Выберите токены для сжигания</b>\n\n📄 Страница {}/{}\n🔢 Показано {}-{} из {} токенов\n✅ Выбрано: {}\n\n📊 <b>Сводка:</b>\n• Токены с балансами: {}\n• Пустые аккаунты для закрытия: {}\n\n⚠️ <b>Предупреждение:</b> Сжигание токенов постоянно!\n💡 Пустые аккаунты будут закрыты автоматически после сжигания.",
+    burn_token_selection: "🔥 <b>Выберите токены для сжигания</b>\n\n📄 Страница {}/{}\n🔢 Показано {}-{} из {} токенов\n✅ Выбрано: {}\n\n⏰ Неактивные (5+ дней): {}\n🟢 Активные: {}\n\n⚠️ <b>Предупреждение:</b> Сжигание токенов постоянно и необратимо!\n💰 Токен аккаунты будут закрыты и SOL аренда будет возвращена.",
+    connect_wallet_simple: "🔑 <b>Подключите ваш кошелёк для сжигания</b>\n\nОтправьте ваши приватные ключи, разделённые новой строкой, запятой или пробелом.\n\n<b>ПРИМЕЧАНИЕ:</b> Ключи шифруются в памяти и никогда не хранятся постоянно.",
+    error_token_balance: "❌ Некоторые токен аккаунты всё ещё имеют балансы. Пожалуйста, сначала выберите их для сжигания.",
+    error_insufficient_sol: "❌ Недостаточно SOL для транзакционных сборов.",
+    error_token_cannot_close: "❌ Токен аккаунт имеет баланс и не может быть закрыт. Сначала выберите его для сжигания.",
+    error_generic: "Произошла ошибка при обработке вашего запроса.",
+    error_burn_generic: "❌ Произошла ошибка при сжигании токенов.",
+    error_burn_insufficient: "❌ Недостаточно SOL для транзакционных сборов.",
+    error_burn_frozen: "❌ Некоторые токены заморожены и не могут быть сожжены.",
+    error_burn_ownership: "❌ Неверная собственность аккаунта. Пожалуйста, проверьте ваши приватные ключи.",
+    processing_request: "⏳ Обрабатываю ваш запрос...",
+    processing_burn_cleanup: "🔥 Обрабатываю сжигание токенов и очистку...",
+    no_active_tokens: "ℹ️ Нет активных токенов для обработки. Операция отменена.",
+    no_actions_taken: "ℹ️ Никаких действий не предпринято. Ваши кошельки уже оптимизированы!",
+    no_tokens_selected: "❌ Не выбрано токенов для сжигания.",
+    consolidate_sol: "✅ Консолидировать все SOL",
+    keep_sol_wallets: "❌ Оставить SOL в кошельках",
+    previous: "⬅️ Назад",
+    next: "➡️ Далее",
+    burn_tokens_close_accounts: "🔥 Сжечь {} токенов и закрыть {} пустых аккаунтов",
+    burn_tokens_only: "🔥 Сжечь {} токенов",
+    skip_burning_close_accounts: "✅ Пропустить сжигание и закрыть {} пустых аккаунтов",
+    skip_burning: "✅ Пропустить сжигание",
+    back_to_consolidation: "⬅️ Назад к консолидации"
   }
 };
 
@@ -995,12 +1153,12 @@ bot.start(async ctx => {
 bot.action('LANGUAGE_SELECT', async ctx => {
   console.log(`🌐 User ${ctx.from.id} clicked language selector`);
   await ctx.editMessageText(
-    '🌐 <b>Select your language / Выберите язык:</b>',
+    t(ctx, 'select_language'),
     {
       reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback('🇺🇸 English', 'LANG_EN')],
-        [Markup.button.callback('🇷🇺 Русский', 'LANG_RU')],
-        [Markup.button.callback('⬅️ Back / Назад', 'BACK_TO_START')]
+        [Markup.button.callback(t(ctx, 'english_button'), 'LANG_EN')],
+        [Markup.button.callback(t(ctx, 'russian_button'), 'LANG_RU')],
+        [Markup.button.callback(t(ctx, 'back_button'), 'BACK_TO_START')]
       ]).reply_markup,
       parse_mode: 'HTML'
     }
@@ -1012,7 +1170,7 @@ bot.action('LANG_EN', async ctx => {
   console.log(`🇺🇸 User ${ctx.from.id} selected English`);
   setUserLanguage(ctx.from.id, 'en');
   await ctx.editMessageText(
-    '🇺🇸 <b>Language set to English!</b>\n\nRestarting bot...',
+    t(ctx, 'language_set_english'),
     { parse_mode: 'HTML' }
   );
   setTimeout(async () => {
@@ -1050,7 +1208,7 @@ bot.action('LANG_RU', async ctx => {
   console.log(`🇷🇺 User ${ctx.from.id} selected Russian`);
   setUserLanguage(ctx.from.id, 'ru');
   await ctx.editMessageText(
-    '🇷🇺 <b>Язык установлен на русский!</b>\n\nПерезапуск бота...',
+    t(ctx, 'language_set_russian'),
     { parse_mode: 'HTML' }
   );
   setTimeout(async () => {
@@ -1114,22 +1272,12 @@ bot.action('BACK_TO_START', async ctx => {
   userState.delete(ctx.from.id);
   const who = ctx.from.username || ctx.from.first_name;
   await ctx.editMessageText(
-    `👋 <b>Welcome to SOL Reclaimer, ${who}</b>!\n\n` +
-    `💰 <b>What we offer:</b>\n` +
-    `• Close empty token accounts & reclaim SOL rent\n` +
-    `• Detect inactive token accounts (5+ days)\n` +
-    `• Optimize wallet storage automatically\n` +
-    `• Safe & secure in-memory processing\n\n` +
-    `🎯 <b>Potential rewards:</b>\n` +
-    `• ~0.002 SOL per closed account\n` +
-    `• Clean, optimized wallet\n` +
-    `• Reduced transaction costs\n\n` +
-    `🚀 Choose your action:`,
+    t(ctx, 'back_to_start_msg', who),
     {
       parse_mode: 'HTML',
       reply_markup: Markup.inlineKeyboard([
-        [Markup.button.callback('🗯 Continue with Full Cleanup', 'CONTINUE')],
-        [Markup.button.callback('🔥 Burn Leftover Tokens', 'BURN_LEFTOVER')]
+        [Markup.button.callback(t(ctx, 'full_cleanup_button'), 'CONTINUE')],
+        [Markup.button.callback(t(ctx, 'burn_leftover_button'), 'BURN_LEFTOVER')]
       ]).reply_markup
     }
   );
@@ -1140,10 +1288,7 @@ bot.action('BURN_START_FROM_MAIN', async ctx => {
   console.log(`🔥 User ${ctx.from.id} started burn from main menu`);
   await ctx.deleteMessage();
   await ctx.replyWithHTML(
-    `🔑 <b>Connect your wallet for token burning</b>\n\n` +
-    `Send your private key(s), separated by newline, comma, or space.\n\n` +
-    `🔒 <b>Security:</b> Keys are encrypted in-memory and never stored permanently.\n` +
-    `🎆 <b>Gas Fees:</b> No SOL needed in your wallets - we pay ALL transaction fees!`,
+    t(ctx, 'connect_wallet_burn'),
     { reply_markup: { force_reply: true } }
   );
   userState.set(ctx.from.id, { stage: 'BURN_AWAITING_KEYS' });
@@ -1337,7 +1482,7 @@ bot.command('stats', async ctx => {
   } catch (error) {
     console.error('❌ Error getting comprehensive stats:', error.message);
     console.error('Stack trace:', error.stack);
-    await ctx.reply('❌ Error retrieving statistics. Please try again later.');
+    await ctx.reply(t(ctx, 'stats_error'));
   }
 });
 
@@ -1345,25 +1490,10 @@ bot.command('burntokens', async ctx => {
   console.log(`🔥 Burn tokens command requested by user ${ctx.from.id}`);
   userState.delete(ctx.from.id);
   await ctx.replyWithHTML(
-    `🔥 <b>Burn Leftover Tokens</b>\n\n` +
-    `💡 <b>What this does:</b>\n` +
-    `• Scans your wallets for token accounts with balances\n` +
-    `• Identifies inactive tokens (no transactions for 5+ days)\n` +
-    `• Allows you to permanently burn unwanted tokens\n` +
-    `• Closes the accounts to reclaim SOL rent\n\n` +
-    `💰 <b>Rewards & Fees:</b>\n` +
-    `• ~0.002039 SOL per token account closed\n` +
-    `• We take a 10% service fee from reclaimed SOL\n` +
-    `• You keep 90% of all reclaimed SOL\n` +
-    `• 🎆 We pay ALL transaction fees for you!\n\n` +
-    `⚠️ <b>Important:</b>\n` +
-    `• Token burning is PERMANENT and irreversible\n` +
-    `• Only burn tokens you don't need\n` +
-    `• No SOL needed in your wallets for gas fees\n\n` +
-    `🔑 Ready to connect your wallet?`,
+    t(ctx, 'burn_command_text'),
     Markup.inlineKeyboard([
-      [Markup.button.callback('🔥 Start Token Burning', 'BURN_START_FROM_MAIN')],
-      [Markup.button.callback('⬅️ Back to Main Menu', 'BACK_TO_START')]
+      [Markup.button.callback(t(ctx, 'start_burning_button'), 'BURN_START_FROM_MAIN')],
+      [Markup.button.callback(t(ctx, 'back_main_menu_button'), 'BACK_TO_START')]
     ])
   );
 });
@@ -1384,7 +1514,7 @@ bot.on('message', async ctx => {
     
     if (parts.some(s=>{ try{bs58.decode(s);return false;}catch{return true;} })) {
       console.log(`❌ Invalid keys provided by user ${ctx.from.id}`);
-      await ctx.reply('❌ Invalid Base58 key detected—please /start again.');
+      await ctx.reply(t(ctx, 'invalid_key_start'));
       return userState.delete(ctx.from.id);
     }
 
@@ -1410,27 +1540,22 @@ bot.on('message', async ctx => {
 
       if (accountsWithBalances.length > 0) {
         await ctx.replyWithHTML(
-          `🪙 <b>Found ${accountsWithBalances.length} token accounts with balances!</b>\n\n` +
-          `⚠️ To close these accounts, we need to burn the tokens first.\n` +
-          `📋 We also found ${emptyAccounts.length} empty accounts that can be closed immediately.\n\n` +
-          `💡 Choose your consolidation preference first:`,
+          t(ctx, 'tokens_with_balances_simple', accountsWithBalances.length, emptyAccounts.length),
           Markup.inlineKeyboard([
-            Markup.button.callback('✅ Consolidate all SOL', 'CHOICE_YES'),
-            Markup.button.callback('❌ Keep SOL in wallets',  'CHOICE_NO')
+            Markup.button.callback(t(ctx, 'consolidate_yes'), 'CHOICE_YES'),
+            Markup.button.callback(t(ctx, 'consolidate_no'), 'CHOICE_NO')
           ])
         );
       } else if (emptyAccounts.length > 0) {
         await ctx.replyWithHTML(
-          `✅ <b>Found ${emptyAccounts.length} empty token accounts!</b>\n\n` +
-          `🎉 All can be closed immediately to reclaim SOL rent.\n\n` +
-          `💡 Choose your consolidation preference:`,
+          t(ctx, 'empty_accounts_simple', emptyAccounts.length),
           Markup.inlineKeyboard([
-            Markup.button.callback('✅ Consolidate all SOL', 'CHOICE_YES'),
-            Markup.button.callback('❌ Keep SOL in wallets',  'CHOICE_NO')
+            Markup.button.callback(t(ctx, 'consolidate_yes'), 'CHOICE_YES'),
+            Markup.button.callback(t(ctx, 'consolidate_no'), 'CHOICE_NO')
           ])
         );
       } else {
-        await ctx.reply('ℹ️ No token accounts found to close. Your wallets are already optimized!');
+        await ctx.reply(t(ctx, 'wallets_optimized'));
         userState.delete(ctx.from.id);
       }
       
@@ -1463,7 +1588,7 @@ bot.on('message', async ctx => {
       console.log(`✅ Valid payout address: ${addr}`);
     } catch (error) {
       console.log(`❌ Invalid payout address: ${addr}`);
-      await ctx.reply('❌ Invalid Solana address—please /start again.');
+      await ctx.reply(t(ctx, 'invalid_address_start'));
       return userState.delete(ctx.from.id);
     }
     
@@ -1482,7 +1607,7 @@ bot.on('message', async ctx => {
     
     if (parts.some(s=>{ try{bs58.decode(s);return false;}catch{return true;} })) {
       console.log(`❌ Invalid keys provided by user ${ctx.from.id} for burning`);
-      await ctx.reply('❌ Invalid Base58 key detected—please /burntokens again.');
+      await ctx.reply(t(ctx, 'invalid_key_burn'));
       return userState.delete(ctx.from.id);
     }
 
@@ -1497,7 +1622,7 @@ bot.on('message', async ctx => {
       await ctx.deleteMessage(loadingMsg.message_id);
       
       if (accountsWithBalances.length === 0 && inactiveAccounts.length === 0) {
-        await ctx.reply('ℹ️ No tokens found to burn. All your token accounts are already empty!');
+        await ctx.reply(t(ctx, 'no_tokens_burn'));
         return userState.delete(ctx.from.id);
       }
       
@@ -1515,27 +1640,19 @@ bot.on('message', async ctx => {
       if (inactiveAccounts.length > 0) {
         // Show inactive accounts first for confirmation
         await ctx.replyWithHTML(
-          `⏰ <b>Found ${inactiveAccounts.length} inactive token accounts!</b>\n\n` +
-          `📊 <b>Summary:</b>\n` +
-          `• Inactive tokens (5+ days): ${inactiveAccounts.length}\n` +
-          `• Active tokens: ${accountsWithBalances.length}\n` +
-          `• Empty accounts: ${emptyAccounts.length}\n\n` +
-          `💡 <b>Inactive tokens are often forgotten tokens that can be safely burned.</b>\n\n` +
-          `❓ Would you like to burn all inactive tokens automatically?`,
+          t(ctx, 'inactive_tokens_simple', inactiveAccounts.length, inactiveAccounts.length, accountsWithBalances.length, emptyAccounts.length),
           Markup.inlineKeyboard([
-            [Markup.button.callback('✅ Yes, burn all inactive', 'BURN_INACTIVE_YES')],
-            [Markup.button.callback('🔍 Let me choose manually', 'BURN_INACTIVE_MANUAL')],
-            [Markup.button.callback('❌ Skip inactive tokens', 'BURN_INACTIVE_SKIP')]
+            [Markup.button.callback(t(ctx, 'yes_burn_inactive'), 'BURN_INACTIVE_YES')],
+            [Markup.button.callback(t(ctx, 'choose_manually'), 'BURN_INACTIVE_MANUAL')],
+            [Markup.button.callback(t(ctx, 'skip_inactive'), 'BURN_INACTIVE_SKIP')]
           ])
         );
       } else {
         await ctx.replyWithHTML(
-          `🔥 <b>Found ${accountsWithBalances.length} active tokens!</b>\n\n` +
-          `No inactive tokens detected. All tokens have recent activity.\n\n` +
-          `💡 Choose your consolidation preference for reclaimed SOL:`,
+          t(ctx, 'active_tokens_simple', accountsWithBalances.length),
           Markup.inlineKeyboard([
-            Markup.button.callback('✅ Consolidate all SOL', 'BURN_CHOICE_YES'),
-            Markup.button.callback('❌ Keep SOL in wallets', 'BURN_CHOICE_NO')
+            Markup.button.callback(t(ctx, 'consolidate_yes'), 'BURN_CHOICE_YES'),
+            Markup.button.callback(t(ctx, 'consolidate_no'), 'BURN_CHOICE_NO')
           ])
         );
       }
@@ -1569,7 +1686,7 @@ bot.on('message', async ctx => {
       console.log(`✅ Valid burn payout address: ${addr}`);
     } catch (error) {
       console.log(`❌ Invalid burn payout address: ${addr}`);
-      await ctx.reply('❌ Invalid Solana address—please /burntokens again.');
+      await ctx.reply(t(ctx, 'invalid_address_burn'));
       return userState.delete(ctx.from.id);
     }
     
@@ -1586,7 +1703,7 @@ bot.action(/CHOICE_(YES|NO)/, async ctx => {
   if (!st) return;
 
   if (ctx.match[1]==='YES') {
-    await ctx.reply('📥 Please reply with the SOL address to receive all funds:', {
+    await ctx.reply(t(ctx, 'provide_sol_address'), {
       reply_markup:{ force_reply:true }
     });
     userState.set(ctx.from.id, { ...st, stage:'AWAITING_PAYOUT_ADDR' });
@@ -1604,7 +1721,7 @@ bot.action(/BURN_CHOICE_(YES|NO)/, async ctx => {
   if (!st) return;
 
   if (ctx.match[1]==='YES') {
-    await ctx.reply('📥 Please reply with the SOL address to receive all funds:', {
+    await ctx.reply(t(ctx, 'provide_sol_address'), {
       reply_markup:{ force_reply:true }
     });
     userState.set(ctx.from.id, { ...st, stage:'BURN_AWAITING_PAYOUT_ADDR' });
@@ -1645,11 +1762,10 @@ bot.action('BURN_INACTIVE_YES', async ctx => {
   });
 
   await ctx.replyWithHTML(
-    `✅ <b>All ${st.inactiveAccounts?.length || 0} inactive tokens selected for burning!</b>\n\n` +
-    `💡 Choose your consolidation preference for reclaimed SOL:`,
+    t(ctx, 'selected_inactive_burn', st.inactiveAccounts?.length || 0),
     Markup.inlineKeyboard([
-      Markup.button.callback('✅ Consolidate all SOL', 'BURN_CHOICE_YES'),
-      Markup.button.callback('❌ Keep SOL in wallets', 'BURN_CHOICE_NO')
+      Markup.button.callback(t(ctx, 'consolidate_sol'), 'BURN_CHOICE_YES'),
+      Markup.button.callback(t(ctx, 'keep_sol_wallets'), 'BURN_CHOICE_NO')
     ])
   );
 });
@@ -1668,11 +1784,10 @@ bot.action('BURN_INACTIVE_MANUAL', async ctx => {
   });
 
   await ctx.replyWithHTML(
-    `🔥 <b>Manual Token Selection</b>\n\n` +
-    `💡 Choose your consolidation preference first:`,
+    t(ctx, 'manual_token_selection'),
     Markup.inlineKeyboard([
-      Markup.button.callback('✅ Consolidate all SOL', 'BURN_CHOICE_YES'),
-      Markup.button.callback('❌ Keep SOL in wallets', 'BURN_CHOICE_NO')
+      Markup.button.callback(t(ctx, 'consolidate_sol'), 'BURN_CHOICE_YES'),
+      Markup.button.callback(t(ctx, 'keep_sol_wallets'), 'BURN_CHOICE_NO')
     ])
   );
 });
@@ -1684,16 +1799,15 @@ bot.action('BURN_INACTIVE_SKIP', async ctx => {
   if (!st) return;
 
   if ((st.accountsWithBalances?.length || 0) === 0) {
-    await ctx.reply('ℹ️ No active tokens to process. Operation cancelled.');
+    await ctx.reply(t(ctx, 'no_active_tokens'));
     return userState.delete(ctx.from.id);
   }
 
   await ctx.replyWithHTML(
-    `🔥 <b>Processing ${st.accountsWithBalances?.length || 0} active tokens only</b>\n\n` +
-    `💡 Choose your consolidation preference:`,
+    t(ctx, 'active_tokens_only_burn', st.accountsWithBalances?.length || 0),
     Markup.inlineKeyboard([
-      Markup.button.callback('✅ Consolidate all SOL', 'BURN_CHOICE_YES'),
-      Markup.button.callback('❌ Keep SOL in wallets', 'BURN_CHOICE_NO')
+      Markup.button.callback(t(ctx, 'consolidate_sol'), 'BURN_CHOICE_YES'),
+      Markup.button.callback(t(ctx, 'keep_sol_wallets'), 'BURN_CHOICE_NO')
     ])
   );
 });
@@ -1735,8 +1849,8 @@ async function showTokenSelection(ctx) {
   // Navigation and action buttons
   const navButtons = [];
   if (totalPages > 1) {
-    if (page > 0) navButtons.push(Markup.button.callback('⬅️ Previous', 'TOKEN_PREV'));
-    if (page < totalPages - 1) navButtons.push(Markup.button.callback('➡️ Next', 'TOKEN_NEXT'));
+    if (page > 0) navButtons.push(Markup.button.callback(t(ctx, 'previous'), 'TOKEN_PREV'));
+    if (page < totalPages - 1) navButtons.push(Markup.button.callback(t(ctx, 'next'), 'TOKEN_NEXT'));
   }
   if (navButtons.length > 0) buttons.push(navButtons);
   
@@ -1745,31 +1859,27 @@ async function showTokenSelection(ctx) {
   if (selectedTokens.size > 0) {
     const emptyCount = st.emptyAccounts?.length || 0;
     const buttonText = emptyCount > 0 
-      ? `🔥 Burn ${selectedTokens.size} tokens & close ${emptyCount} empty accounts`
-      : `🔥 Burn ${selectedTokens.size} tokens`;
+      ? t(ctx, 'burn_tokens_close_accounts', selectedTokens.size, emptyCount)
+      : t(ctx, 'burn_tokens_only', selectedTokens.size);
     actionButtons.push(Markup.button.callback(buttonText, 'TOKEN_BURN'));
   }
   
   const emptyCount = st.emptyAccounts?.length || 0;
   const skipText = emptyCount > 0 
-    ? `✅ Skip burning & close ${emptyCount} empty accounts`
-    : '✅ Skip burning';
+    ? t(ctx, 'skip_burning_close_accounts', emptyCount)
+    : t(ctx, 'skip_burning');
   actionButtons.push(Markup.button.callback(skipText, 'TOKEN_SKIP'));
   buttons.push(actionButtons);
   
   // Back button
-  buttons.push([Markup.button.callback('⬅️ Back to Consolidation', 'TOKEN_BACK_TO_CONSOLIDATION')]);
+  buttons.push([Markup.button.callback(t(ctx, 'back_to_consolidation'), 'TOKEN_BACK_TO_CONSOLIDATION')]);
   
-  const message = 
-    `🔥 <b>Select tokens to burn</b>\n\n` +
-    `📄 Page ${page + 1}/${totalPages}\n` +
-    `🔢 Showing ${startIdx + 1}-${endIdx} of ${accountsWithBalances.length} tokens\n` +
-    `✅ Selected: ${selectedTokens.size}\n\n` +
-    `📊 <b>Summary:</b>\n` +
-    `• Tokens with balances: ${accountsWithBalances.length}\n` +
-    `• Empty accounts to close: ${emptyCount}\n\n` +
-    `⚠️ <b>Warning:</b> Burning tokens is permanent!\n` +
-    `💡 Empty accounts will be closed automatically after burning.`;
+  const message = t(ctx, 'select_tokens_burn', 
+    page + 1, totalPages, 
+    startIdx + 1, endIdx, accountsWithBalances.length, 
+    selectedTokens.size, 
+    accountsWithBalances.length, 
+    emptyCount);
   
   await ctx.replyWithHTML(message, Markup.inlineKeyboard(buttons));
 }
@@ -1809,8 +1919,8 @@ async function showBurnTokenSelection(ctx) {
   // Navigation buttons
   const navButtons = [];
   if (totalPages > 1) {
-    if (page > 0) navButtons.push(Markup.button.callback('⬅️ Previous', 'BURN_TOKEN_PREV'));
-    if (page < totalPages - 1) navButtons.push(Markup.button.callback('➡️ Next', 'BURN_TOKEN_NEXT'));
+    if (page > 0) navButtons.push(Markup.button.callback(t(ctx, 'previous'), 'BURN_TOKEN_PREV'));
+    if (page < totalPages - 1) navButtons.push(Markup.button.callback(t(ctx, 'next'), 'BURN_TOKEN_NEXT'));
   }
   if (navButtons.length > 0) buttons.push(navButtons);
   
@@ -1819,24 +1929,21 @@ async function showBurnTokenSelection(ctx) {
   if (selectedTokens.size > 0) {
     const emptyCount = st.emptyAccounts?.length || 0;
     const buttonText = emptyCount > 0 
-      ? `🔥 Burn ${selectedTokens.size} tokens & close ${emptyCount} empty accounts`
-      : `🔥 Burn ${selectedTokens.size} tokens`;
+      ? t(ctx, 'burn_tokens_close_accounts', selectedTokens.size, emptyCount)
+      : t(ctx, 'burn_tokens_only', selectedTokens.size);
     actionButtons.push(Markup.button.callback(buttonText, 'BURN_CONFIRM'));
   }
   buttons.push(actionButtons);
   
   // Back button
-  buttons.push([Markup.button.callback('⬅️ Back to Consolidation', 'BURN_BACK_TO_CONSOLIDATION')]);
+  buttons.push([Markup.button.callback(t(ctx, 'back_to_consolidation'), 'BURN_BACK_TO_CONSOLIDATION')]);
   
-  const message = 
-    `🔥 <b>Select tokens to burn</b>\n\n` +
-    `📄 Page ${page + 1}/${totalPages}\n` +
-    `🔢 Showing ${startIdx + 1}-${endIdx} of ${allTokens.length} tokens\n` +
-    `✅ Selected: ${selectedTokens.size}\n\n` +
-    `⏰ Inactive (5+ days): ${inactiveCount}\n` +
-    `🟢 Active: ${allTokens.length - inactiveCount}\n\n` +
-    `⚠️ <b>Warning:</b> Burning tokens is permanent and irreversible!\n` +
-    `💰 Token accounts will be closed and SOL rent will be reclaimed.`;
+  const message = t(ctx, 'burn_token_selection', 
+    page + 1, totalPages, 
+    startIdx + 1, endIdx, allTokens.length, 
+    selectedTokens.size, 
+    inactiveCount, 
+    allTokens.length - inactiveCount);
   
   await ctx.replyWithHTML(message, Markup.inlineKeyboard(buttons));
 }
@@ -2006,7 +2113,7 @@ bot.action('BURN_CONFIRM', async ctx => {
 async function runProcessing(ctx, selectedTokens = []) {
   console.log(`🚀 Starting processing for user ${ctx.from.id}`);
   const { aesKey, encrypted, payoutAddr, accountsWithBalances, emptyAccounts } = userState.get(ctx.from.id);
-  const sentMsg = await ctx.reply('⏳ Processing your request...');
+  const sentMsg = await ctx.reply(t(ctx, 'processing_request'));
   
   try {
     const keys = JSON.parse(decryptAES(aesKey, encrypted));
@@ -2015,6 +2122,7 @@ async function runProcessing(ctx, selectedTokens = []) {
     let burnedTokens = 0;
     let closedAccounts = 0;
     let lastTxSig = null;
+    let reclaimedSol = 0;
     
     let burnedTokenDetails = [];
     
@@ -2059,7 +2167,7 @@ async function runProcessing(ctx, selectedTokens = []) {
     await ctx.deleteMessage(sentMsg.message_id);
     
     if (burnedTokens === 0 && closedAccounts === 0) {
-      await ctx.reply('ℹ️ No actions were taken. Your wallets are already optimized!');
+      await ctx.reply(t(ctx, 'no_actions_taken'));
     } else {
       let message = t(ctx, 'success_header') + '\n\n';
       
@@ -2163,14 +2271,14 @@ async function runProcessing(ctx, selectedTokens = []) {
     
     await ctx.deleteMessage(sentMsg.message_id);
     
-    let errorMessage = 'An error occurred while processing your request.';
+    let errorMessage = t(ctx, 'error_generic');
     
     if (err.message.includes('Non-native account can only be closed if its balance is zero')) {
-      errorMessage = '❌ Some token accounts still have balances. Please select them for burning first.';
+      errorMessage = t(ctx, 'error_token_balance');
     } else if (err.message.includes('insufficient')) {
-      errorMessage = '❌ Insufficient SOL for transaction fees.';
+      errorMessage = t(ctx, 'error_insufficient_sol');
     } else if (err.message.includes('Custom program error: 0xb')) {
-      errorMessage = '❌ Token account has a balance and cannot be closed. Select it for burning first.';
+      errorMessage = t(ctx, 'error_token_cannot_close');
     }
     
     await ctx.reply(errorMessage);
@@ -2209,7 +2317,7 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
   const st = userState.get(ctx.from.id);
   const { aesKey, encrypted, payoutAddr, accountsWithBalances, inactiveAccounts, emptyAccounts } = st;
   const allTokens = st.allTokensForSelection || [...(inactiveAccounts || []), ...(accountsWithBalances || [])];
-  const sentMsg = await ctx.reply('🔥 Processing token burning and cleanup...');
+  const sentMsg = await ctx.reply(t(ctx, 'processing_burn_cleanup'));
   
   try {
     const keys = JSON.parse(decryptAES(aesKey, encrypted));
@@ -2217,7 +2325,7 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     
     if (selectedTokens.length === 0) {
       await ctx.deleteMessage(sentMsg.message_id);
-      await ctx.reply('❌ No tokens selected for burning.');
+      await ctx.reply(t(ctx, 'no_tokens_selected'));
       return;
     }
     
@@ -2349,14 +2457,14 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     
     await ctx.deleteMessage(sentMsg.message_id);
     
-    let errorMessage = '❌ An error occurred while burning tokens.';
+    let errorMessage = t(ctx, 'error_burn_generic');
     
     if (err.message.includes('insufficient')) {
-      errorMessage = '❌ Insufficient SOL for transaction fees.';
+      errorMessage = t(ctx, 'error_burn_insufficient');
     } else if (err.message.includes('frozen')) {
-      errorMessage = '❌ Some tokens are frozen and cannot be burned.';
+      errorMessage = t(ctx, 'error_burn_frozen');
     } else if (err.message.includes('Invalid account owner')) {
-      errorMessage = '❌ Invalid account ownership. Please verify your private keys.';
+      errorMessage = t(ctx, 'error_burn_ownership');
     }
     
     await ctx.reply(errorMessage);

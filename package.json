@@ -1,15 +1,18 @@
 {
-  "name": "untitled-folder-2",
+  "name": "solbeck-bot",
   "version": "1.0.0",
-  "main": "temp.js",
+  "main": "telebot.js",
   "type": "module",
   "scripts": {
+    "start": "node telebot.js",
+    "dev": "node telebot.js",
+    "build": "echo 'No build required'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["telegram", "bot", "solana", "oauth", "gmail"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "SolBeck Telegram bot with Google OAuth integration",
   "dependencies": {
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.2",
@@ -18,6 +21,10 @@
     "crypto": "^1.0.1",
     "dotenv": "^17.0.1",
     "ed25519-hd-key": "^1.3.0",
+    "node-fetch": "^3.3.2",
     "telegraf": "^4.16.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

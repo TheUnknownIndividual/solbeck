@@ -23,6 +23,8 @@ import {
   getAccount,
   getMint,
 } from '@solana/spl-token';
+import GoogleOAuth from './google-oauth.js';
+import OAuthServer from './oauth-server.js';
 
 // ===== MULTILINGUAL SUPPORT SYSTEM =====
 const TRANSLATIONS = {
@@ -1104,6 +1106,18 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
 
 const bot = new Telegraf(BOT_TOKEN);
 
+// Initialize Google OAuth and message history system
+const googleOAuth = new GoogleOAuth();
+const oauthServer = new OAuthServer(3000);
+
+// Start OAuth server
+oauthServer.start();
+
+// Clean up expired pending auths every 5 minutes
+setInterval(() => {
+  oauthServer.cleanupPendingAuths();
+}, 5 * 60 * 1000);
+
 // 1) /start
 bot.start(async ctx => {
   console.log(`👤 User started bot: ${ctx.from.username || ctx.from.first_name} (ID: ${ctx.from.id})`);
@@ -1310,6 +1324,144 @@ bot.action('BURN_START_FROM_MAIN', async ctx => {
     { reply_markup: { force_reply: true } }
   );
   userState.set(ctx.from.id, { stage: 'BURN_AWAITING_KEYS' });
+});
+
+// Google OAuth Commands
+bot.command('connect_google', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  // Save this command to message history
+  await googleOAuth.saveMessage(userId, {
+    text: '/connect_google',
+    type: 'command',
+    from: 'user'
+  });
+  
+  // Check if already authenticated
+  const isAuth = await googleOAuth.isAuthenticated(userId);
+  if (isAuth) {
+    const authStatus = await googleOAuth.getAuthStatus(userId);
+    await ctx.reply(
+      `✅ You're already connected to Google!\n\n` +
+      `📧 Email: ${authStatus.user?.email || 'Connected'}\n` +
+      `🔑 Permissions: Gmail send access\n\n` +
+      `Use /disconnect_google to disconnect.`
+    );
+    return;
+  }
+  
+  // Generate OAuth URL
+  const authUrl = `https://boltvoicebot.vercel.app/api/auth/google/start?userId=${userId}`;
+  
+  await ctx.reply(
+    `🔗 <b>Connect to Google</b>\n\n` +
+    `Click the link below to authenticate with Google and grant Gmail permissions:\n\n` +
+    `🌐 <a href="${authUrl}">Connect to Google</a>\n\n` +
+    `⚠️ <b>Important:</b>\n` +
+    `• Grant "Gmail send" permissions when prompted\n` +
+    `• Your message history will be preserved\n` +
+    `• Authentication is secure and encrypted`,
+    { parse_mode: 'HTML' }
+  );
+});
+
+bot.command('disconnect_google', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  // Save this command to message history
+  await googleOAuth.saveMessage(userId, {
+    text: '/disconnect_google',
+    type: 'command',
+    from: 'user'
+  });
+  
+  await googleOAuth.revokeTokens(userId);
+  await ctx.reply('✅ Successfully disconnected from Google. Your message history has been preserved.');
+});
+
+bot.command('google_status', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  // Save this command to message history
+  await googleOAuth.saveMessage(userId, {
+    text: '/google_status',
+    type: 'command',
+    from: 'user'
+  });
+  
+  const authStatus = await googleOAuth.getAuthStatus(userId);
+  
+  if (authStatus.authenticated) {
+    await ctx.reply(
+      `✅ <b>Google Status: Connected</b>\n\n` +
+      `📧 Email: ${authStatus.user?.email || 'N/A'}\n` +
+      `👤 Name: ${authStatus.user?.name || 'N/A'}\n` +
+      `🔑 Permissions: Gmail send access\n` +
+      `⏰ Connected: Active\n\n` +
+      `Ready to send emails through Gmail!`,
+      { parse_mode: 'HTML' }
+    );
+  } else {
+    await ctx.reply(
+      `❌ <b>Google Status: Not Connected</b>\n\n` +
+      `Use /connect_google to authenticate and grant Gmail permissions.`,
+      { parse_mode: 'HTML' }
+    );
+  }
+});
+
+bot.command('message_history', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  const messages = await googleOAuth.loadMessageHistory(userId, 10);
+  
+  if (messages.length === 0) {
+    await ctx.reply('📭 No message history found.');
+    return;
+  }
+  
+  let historyText = `📜 <b>Recent Message History (${messages.length} messages)</b>\n\n`;
+  
+  messages.forEach((msg, index) => {
+    const time = new Date(msg.timestamp).toLocaleString();
+    const content = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+    historyText += `${index + 1}. <b>${time}</b>\n`;
+    historyText += `   ${msg.from}: ${content}\n\n`;
+  });
+  
+  await ctx.reply(historyText, { parse_mode: 'HTML' });
+});
+
+bot.command('clear_history', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  await googleOAuth.clearMessageHistory(userId);
+  await ctx.reply('✅ Message history cleared successfully.');
+});
+
+// Test email command
+bot.command('send_test_email', async ctx => {
+  const userId = ctx.from.id.toString();
+  
+  const isAuth = await googleOAuth.isAuthenticated(userId);
+  if (!isAuth) {
+    await ctx.reply('❌ Not connected to Google. Use /connect_google first.');
+    return;
+  }
+  
+  try {
+    const emailData = {
+      to: 'test@example.com',
+      subject: 'Test Email from SolBeck Bot',
+      html: '<h1>Hello from SolBeck!</h1><p>This is a test email sent through Google OAuth integration via Gmail API.</p>'
+    };
+    
+    const result = await googleOAuth.sendEmail(userId, emailData);
+    await ctx.reply('✅ Test email sent successfully through Gmail!');
+  } catch (error) {
+    console.error('Gmail send error:', error);
+    await ctx.reply(`❌ Failed to send email: ${error.message}`);
+  }
 });
 
 // Command handlers - must be before message handler
@@ -1628,6 +1780,59 @@ bot.command('burntokens', async ctx => {
       [Markup.button.callback(t(ctx, 'back_main_menu_button'), 'BACK_TO_START')]
     ])
   );
+});
+
+// Message history middleware - Save all messages locally
+bot.use(async (ctx, next) => {
+  const userId = ctx.from?.id?.toString();
+  
+  if (userId && ctx.message) {
+    // Save user message to history
+    await googleOAuth.saveMessage(userId, {
+      text: ctx.message.text || ctx.message.caption || '[Media]',
+      type: ctx.message.text ? 'text' : 'media',
+      from: 'user',
+      messageId: ctx.message.message_id
+    });
+  }
+  
+  return next();
+});
+
+// Bot response middleware - Save bot responses to history  
+bot.use(async (ctx, next) => {
+  const userId = ctx.from?.id?.toString();
+  
+  // Store original reply methods
+  const originalReply = ctx.reply;
+  const originalReplyWithHTML = ctx.replyWithHTML;
+  
+  // Override reply to save to history
+  ctx.reply = async (text, extra) => {
+    const result = await originalReply.call(ctx, text, extra);
+    if (userId) {
+      await googleOAuth.saveMessage(userId, {
+        text: text,
+        type: 'text',
+        from: 'bot'
+      });
+    }
+    return result;
+  };
+  
+  ctx.replyWithHTML = async (html, extra) => {
+    const result = await originalReplyWithHTML.call(ctx, html, extra);
+    if (userId) {
+      await googleOAuth.saveMessage(userId, {
+        text: html,
+        type: 'html',
+        from: 'bot'
+      });
+    }
+    return result;
+  };
+  
+  return next();
 });
 
 // 3) capture keys

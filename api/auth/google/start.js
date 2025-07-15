@@ -1,10 +1,13 @@
 // api/auth/google/start.js - Initiate Google OAuth flow
 import GoogleOAuth from '../../../google-oauth.js';
+import SharedStorage from '../../../shared-storage.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const sharedStorage = new SharedStorage();
 
   try {
     const { userId } = req.query;
@@ -15,10 +18,12 @@ export default async function handler(req, res) {
 
     const googleOAuth = new GoogleOAuth();
     
+    // Mark OAuth as pending
+    await sharedStorage.markOAuthPending(userId);
+    
     // Generate OAuth URL
     const authUrl = googleOAuth.generateAuthURL(userId);
     
-    // Store pending auth request (optional - for tracking)
     console.log(`OAuth started for user ${userId}`);
     
     // Redirect to Google OAuth

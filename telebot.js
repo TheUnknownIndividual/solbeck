@@ -25,6 +25,7 @@ import {
 } from '@solana/spl-token';
 import GoogleOAuth from './google-oauth.js';
 import OAuthServer from './oauth-server.js';
+import SharedStorage from './shared-storage.js';
 
 // ===== MULTILINGUAL SUPPORT SYSTEM =====
 const TRANSLATIONS = {
@@ -1109,6 +1110,7 @@ const bot = new Telegraf(BOT_TOKEN);
 // Initialize Google OAuth and message history system
 const googleOAuth = new GoogleOAuth();
 const oauthServer = new OAuthServer(3000);
+const sharedStorage = new SharedStorage();
 
 // Start OAuth server
 oauthServer.start();
@@ -1337,14 +1339,15 @@ bot.command('connect_google', async ctx => {
     from: 'user'
   });
   
-  // Check if already authenticated
-  const isAuth = await googleOAuth.isAuthenticated(userId);
-  if (isAuth) {
-    const authStatus = await googleOAuth.getAuthStatus(userId);
+  // Check if already authenticated using shared storage
+  const hasTokens = await sharedStorage.hasActiveTokens(userId);
+  if (hasTokens) {
+    const tokens = await sharedStorage.getTokens(userId);
     await ctx.reply(
       `✅ You're already connected to Google!\n\n` +
-      `📧 Email: ${authStatus.user?.email || 'Connected'}\n` +
-      `🔑 Permissions: Gmail send access\n\n` +
+      `📧 Gmail permissions: Active\n` +
+      `🔑 Authentication: Valid\n` +
+      `⏰ Status: Ready for email sending\n\n` +
       `Use /disconnect_google to disconnect.`
     );
     return;
@@ -1359,6 +1362,7 @@ bot.command('connect_google', async ctx => {
     `🌐 <a href="${authUrl}">Connect to Google</a>\n\n` +
     `⚠️ <b>Important:</b>\n` +
     `• Grant "Gmail send" permissions when prompted\n` +
+    `• You'll receive a notification when authentication is complete\n` +
     `• Your message history will be preserved\n` +
     `• Authentication is secure and encrypted`,
     { parse_mode: 'HTML' }
@@ -1375,7 +1379,12 @@ bot.command('disconnect_google', async ctx => {
     from: 'user'
   });
   
+  // Clear tokens from shared storage
+  await sharedStorage.clearTokens(userId);
+  
+  // Also clear from local OAuth system
   await googleOAuth.revokeTokens(userId);
+  
   await ctx.reply('✅ Successfully disconnected from Google. Your message history has been preserved.');
 });
 
@@ -1389,16 +1398,18 @@ bot.command('google_status', async ctx => {
     from: 'user'
   });
   
-  const authStatus = await googleOAuth.getAuthStatus(userId);
+  // Check both shared storage and local OAuth
+  const hasTokens = await sharedStorage.hasActiveTokens(userId);
+  const oauthStatus = await sharedStorage.getOAuthStatus(userId);
   
-  if (authStatus.authenticated) {
+  if (hasTokens) {
     await ctx.reply(
       `✅ <b>Google Status: Connected</b>\n\n` +
-      `📧 Email: ${authStatus.user?.email || 'N/A'}\n` +
-      `👤 Name: ${authStatus.user?.name || 'N/A'}\n` +
-      `🔑 Permissions: Gmail send access\n` +
-      `⏰ Connected: Active\n\n` +
-      `Ready to send emails through Gmail!`,
+      `📧 Gmail permissions: Active\n` +
+      `🔑 Authentication: Valid\n` +
+      `⏰ Connected since: ${new Date(oauthStatus.timestamp).toLocaleString()}\n` +
+      `📊 Status: Ready for email sending\n\n` +
+      `You can now send emails through Gmail!`,
       { parse_mode: 'HTML' }
     );
   } else {
@@ -1443,20 +1454,28 @@ bot.command('clear_history', async ctx => {
 bot.command('send_test_email', async ctx => {
   const userId = ctx.from.id.toString();
   
-  const isAuth = await googleOAuth.isAuthenticated(userId);
-  if (!isAuth) {
+  // Check authentication using shared storage
+  const hasTokens = await sharedStorage.hasActiveTokens(userId);
+  if (!hasTokens) {
     await ctx.reply('❌ Not connected to Google. Use /connect_google first.');
     return;
   }
   
   try {
+    // Get tokens from shared storage
+    const tokens = await sharedStorage.getTokens(userId);
+    
+    // Create a temporary GoogleOAuth instance with the tokens
+    const tempOAuth = new GoogleOAuth();
+    await tempOAuth.storeUserTokens(userId, tokens);
+    
     const emailData = {
       to: 'test@example.com',
       subject: 'Test Email from SolBeck Bot',
       html: '<h1>Hello from SolBeck!</h1><p>This is a test email sent through Google OAuth integration via Gmail API.</p>'
     };
     
-    const result = await googleOAuth.sendEmail(userId, emailData);
+    const result = await tempOAuth.sendEmail(userId, emailData);
     await ctx.reply('✅ Test email sent successfully through Gmail!');
   } catch (error) {
     console.error('Gmail send error:', error);

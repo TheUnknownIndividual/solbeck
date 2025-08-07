@@ -433,8 +433,8 @@ const REFERRAL_CODES = {
   },
   'cryptic': {
     name: 'Cryptic Tradez',
-    freeWallets: 10,
-    description: 'Cryptic Tradez holders get feeless service for first 10 wallets!'
+    freeWallets: Infinity,
+    description: 'Cryptic Tradez holders get unlimited feeless service!'
   }
 };
 

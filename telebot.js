@@ -1138,20 +1138,25 @@ bot.start(async ctx => {
     
     console.log(`🎉 Referral user detected: ${ctx.from.id} from ${referralConfig.name}`);
     
-    referralMessage = t(ctx, 'referral_welcome_msg', 
-      referralConfig.name.toUpperCase(), 
-      referralConfig.freeWallets, 
-      referralConfig.freeWallets
-    ) + '\n\n';
-    
-    feeMessage = t(ctx, 'referral_benefits', 
-      referralConfig.name.toUpperCase(), 
-      referralConfig.freeWallets,
-      referralConfig.freeWallets,
-      referralConfig.freeWallets,
-      referralConfig.freeWallets,
-      referralConfig.freeWallets
-    ) + '\n\n';
+    if (referralConfig.freeWallets === Infinity) {
+      referralMessage = `🎉 <b>Welcome to SolBeck!</b>\n\n🌟 <b>You're a valued ${referralConfig.name} holder!</b>\n\nAs a special thank you for your support, you'll enjoy <b>unlimited feeless service</b> for all operations! 🎁 ∞\n\n✨ <b>What I can do:</b>\n• Burn unwanted tokens from multiple wallets\n• Close empty token accounts to reclaim SOL rent\n• Consolidate SOL from multiple wallets\n• Handle large batches (up to 100 wallets)\n\n🚀 <b>Ready to optimize your wallets?</b>\n\n`;
+      feeMessage = `🎯 <b>Special ${referralConfig.name.toUpperCase()} Benefits:</b>\n• ∞ <b>UNLIMITED feeless operations</b>\n• No wallet limits ever\n• Full access to all features\n• Priority support\n\n`;
+    } else {
+      referralMessage = t(ctx, 'referral_welcome_msg', 
+        referralConfig.name.toUpperCase(), 
+        referralConfig.freeWallets, 
+        referralConfig.freeWallets
+      ) + '\n\n';
+      
+      feeMessage = t(ctx, 'referral_benefits', 
+        referralConfig.name.toUpperCase(), 
+        referralConfig.freeWallets,
+        referralConfig.freeWallets,
+        referralConfig.freeWallets,
+        referralConfig.freeWallets,
+        referralConfig.freeWallets
+      ) + '\n\n';
+    }
   }
   
   const who = ctx.from.username || ctx.from.first_name;
@@ -2472,12 +2477,16 @@ async function runProcessing(ctx, selectedTokens = []) {
       const referralInfo = referralUsers.get(ctx.from.id);
       if (referralInfo) {
         const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
-        const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
-        if (remainingFreeWallets > 0) {
-          const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
-          message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
+        if (referralConfig.freeWallets === Infinity) {
+          message += `\n\n🎁 <b>${referralConfig.name} member:</b> Unlimited feeless service! ♾️`;
         } else {
-          message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
+          const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
+          if (remainingFreeWallets > 0) {
+            const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
+            message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
+          } else {
+            message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
+          }
         }
       }
       
@@ -2662,12 +2671,16 @@ async function runBurnProcessing(ctx, selectedTokens = []) {
     const referralInfo = referralUsers.get(ctx.from.id);
     if (referralInfo) {
       const referralConfig = REFERRAL_CODES[referralInfo.referralCode];
-      const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
-      if (remainingFreeWallets > 0) {
-        const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
-        message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
+      if (referralConfig.freeWallets === Infinity) {
+        message += `\n\n🎁 <b>${referralConfig.name} member:</b> Unlimited feeless service! ♾️`;
       } else {
-        message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
+        const remainingFreeWallets = Math.max(0, referralConfig.freeWallets - referralInfo.walletCount);
+        if (remainingFreeWallets > 0) {
+          const walletSuffix = remainingFreeWallets > 1 ? 's' : '';
+          message += `\n\n` + t(ctx, 'referral_remaining', referralConfig.name, remainingFreeWallets, walletSuffix);
+        } else {
+          message += `\n\n` + t(ctx, 'referral_quota_used', referralConfig.name);
+        }
       }
     }
     

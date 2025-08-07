@@ -23,8 +23,6 @@ import {
   getAccount,
   getMint,
 } from '@solana/spl-token';
-import GoogleOAuth from './google-oauth.js';
-import OAuthServer from './oauth-server.js';
 import SharedStorage from './shared-storage.js';
 
 // ===== MULTILINGUAL SUPPORT SYSTEM =====
@@ -432,6 +430,11 @@ const REFERRAL_CODES = {
     name: 'Combustion',
     freeWallets: 10,
     description: 'Combustion members get feeless service for first 10 wallets!'
+  },
+  'cryptic': {
+    name: 'Cryptic Tradez',
+    freeWallets: 10,
+    description: 'Cryptic Tradez holders get feeless service for first 10 wallets!'
   }
 };
 
@@ -1107,18 +1110,7 @@ async function processEmptyAccounts(privateKeyStrings, consolidateTo, emptyAccou
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Initialize Google OAuth and message history system
-const googleOAuth = new GoogleOAuth();
-const oauthServer = new OAuthServer(3000);
 const sharedStorage = new SharedStorage();
-
-// Start OAuth server
-oauthServer.start();
-
-// Clean up expired pending auths every 5 minutes
-setInterval(() => {
-  oauthServer.cleanupPendingAuths();
-}, 5 * 60 * 1000);
 
 // 1) /start
 bot.start(async ctx => {
@@ -1328,160 +1320,6 @@ bot.action('BURN_START_FROM_MAIN', async ctx => {
   userState.set(ctx.from.id, { stage: 'BURN_AWAITING_KEYS' });
 });
 
-// Google OAuth Commands
-bot.command('connect_google', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  // Save this command to message history
-  await googleOAuth.saveMessage(userId, {
-    text: '/connect_google',
-    type: 'command',
-    from: 'user'
-  });
-  
-  // Check if already authenticated using shared storage
-  const hasTokens = await sharedStorage.hasActiveTokens(userId);
-  if (hasTokens) {
-    const tokens = await sharedStorage.getTokens(userId);
-    await ctx.reply(
-      `✅ You're already connected to Google!\n\n` +
-      `📧 Gmail permissions: Active\n` +
-      `🔑 Authentication: Valid\n` +
-      `⏰ Status: Ready for email sending\n\n` +
-      `Use /disconnect_google to disconnect.`
-    );
-    return;
-  }
-  
-  // Generate OAuth URL
-  const authUrl = `https://boltvoicebot.vercel.app/api/auth/google/start?userId=${userId}`;
-  
-  await ctx.reply(
-    `🔗 <b>Connect to Google</b>\n\n` +
-    `Click the link below to authenticate with Google and grant Gmail permissions:\n\n` +
-    `🌐 <a href="${authUrl}">Connect to Google</a>\n\n` +
-    `⚠️ <b>Important:</b>\n` +
-    `• Grant "Gmail send" permissions when prompted\n` +
-    `• You'll receive a notification when authentication is complete\n` +
-    `• Your message history will be preserved\n` +
-    `• Authentication is secure and encrypted`,
-    { parse_mode: 'HTML' }
-  );
-});
-
-bot.command('disconnect_google', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  // Save this command to message history
-  await googleOAuth.saveMessage(userId, {
-    text: '/disconnect_google',
-    type: 'command',
-    from: 'user'
-  });
-  
-  // Clear tokens from shared storage
-  await sharedStorage.clearTokens(userId);
-  
-  // Also clear from local OAuth system
-  await googleOAuth.revokeTokens(userId);
-  
-  await ctx.reply('✅ Successfully disconnected from Google. Your message history has been preserved.');
-});
-
-bot.command('google_status', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  // Save this command to message history
-  await googleOAuth.saveMessage(userId, {
-    text: '/google_status',
-    type: 'command',
-    from: 'user'
-  });
-  
-  // Check both shared storage and local OAuth
-  const hasTokens = await sharedStorage.hasActiveTokens(userId);
-  const oauthStatus = await sharedStorage.getOAuthStatus(userId);
-  
-  if (hasTokens) {
-    await ctx.reply(
-      `✅ <b>Google Status: Connected</b>\n\n` +
-      `📧 Gmail permissions: Active\n` +
-      `🔑 Authentication: Valid\n` +
-      `⏰ Connected since: ${new Date(oauthStatus.timestamp).toLocaleString()}\n` +
-      `📊 Status: Ready for email sending\n\n` +
-      `You can now send emails through Gmail!`,
-      { parse_mode: 'HTML' }
-    );
-  } else {
-    await ctx.reply(
-      `❌ <b>Google Status: Not Connected</b>\n\n` +
-      `Use /connect_google to authenticate and grant Gmail permissions.`,
-      { parse_mode: 'HTML' }
-    );
-  }
-});
-
-bot.command('message_history', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  const messages = await googleOAuth.loadMessageHistory(userId, 10);
-  
-  if (messages.length === 0) {
-    await ctx.reply('📭 No message history found.');
-    return;
-  }
-  
-  let historyText = `📜 <b>Recent Message History (${messages.length} messages)</b>\n\n`;
-  
-  messages.forEach((msg, index) => {
-    const time = new Date(msg.timestamp).toLocaleString();
-    const content = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
-    historyText += `${index + 1}. <b>${time}</b>\n`;
-    historyText += `   ${msg.from}: ${content}\n\n`;
-  });
-  
-  await ctx.reply(historyText, { parse_mode: 'HTML' });
-});
-
-bot.command('clear_history', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  await googleOAuth.clearMessageHistory(userId);
-  await ctx.reply('✅ Message history cleared successfully.');
-});
-
-// Test email command
-bot.command('send_test_email', async ctx => {
-  const userId = ctx.from.id.toString();
-  
-  // Check authentication using shared storage
-  const hasTokens = await sharedStorage.hasActiveTokens(userId);
-  if (!hasTokens) {
-    await ctx.reply('❌ Not connected to Google. Use /connect_google first.');
-    return;
-  }
-  
-  try {
-    // Get tokens from shared storage
-    const tokens = await sharedStorage.getTokens(userId);
-    
-    // Create a temporary GoogleOAuth instance with the tokens
-    const tempOAuth = new GoogleOAuth();
-    await tempOAuth.storeUserTokens(userId, tokens);
-    
-    const emailData = {
-      to: 'test@example.com',
-      subject: 'Test Email from SolBeck Bot',
-      html: '<h1>Hello from SolBeck!</h1><p>This is a test email sent through Google OAuth integration via Gmail API.</p>'
-    };
-    
-    const result = await tempOAuth.sendEmail(userId, emailData);
-    await ctx.reply('✅ Test email sent successfully through Gmail!');
-  } catch (error) {
-    console.error('Gmail send error:', error);
-    await ctx.reply(`❌ Failed to send email: ${error.message}`);
-  }
-});
 
 // Command handlers - must be before message handler
 bot.command('stats', async ctx => {
@@ -1801,58 +1639,6 @@ bot.command('burntokens', async ctx => {
   );
 });
 
-// Message history middleware - Save all messages locally
-bot.use(async (ctx, next) => {
-  const userId = ctx.from?.id?.toString();
-  
-  if (userId && ctx.message) {
-    // Save user message to history
-    await googleOAuth.saveMessage(userId, {
-      text: ctx.message.text || ctx.message.caption || '[Media]',
-      type: ctx.message.text ? 'text' : 'media',
-      from: 'user',
-      messageId: ctx.message.message_id
-    });
-  }
-  
-  return next();
-});
-
-// Bot response middleware - Save bot responses to history  
-bot.use(async (ctx, next) => {
-  const userId = ctx.from?.id?.toString();
-  
-  // Store original reply methods
-  const originalReply = ctx.reply;
-  const originalReplyWithHTML = ctx.replyWithHTML;
-  
-  // Override reply to save to history
-  ctx.reply = async (text, extra) => {
-    const result = await originalReply.call(ctx, text, extra);
-    if (userId) {
-      await googleOAuth.saveMessage(userId, {
-        text: text,
-        type: 'text',
-        from: 'bot'
-      });
-    }
-    return result;
-  };
-  
-  ctx.replyWithHTML = async (html, extra) => {
-    const result = await originalReplyWithHTML.call(ctx, html, extra);
-    if (userId) {
-      await googleOAuth.saveMessage(userId, {
-        text: html,
-        type: 'html',
-        from: 'bot'
-      });
-    }
-    return result;
-  };
-  
-  return next();
-});
 
 // 3) capture keys
 bot.on('message', async ctx => {
@@ -1954,6 +1740,9 @@ bot.on('message', async ctx => {
       await ctx.reply(t(ctx, 'invalid_address_start'));
       return userState.delete(ctx.from.id);
     }
+    
+    // Store the consolidation wallet for future use
+    await sharedStorage.storeConsolidationWallet(ctx.from.id, addr);
     
     userState.set(ctx.from.id, { ...st, payoutAddr: addr, stage:'TOKEN_SELECTION' });
     await showTokenSelection(ctx);
@@ -2060,6 +1849,9 @@ bot.on('message', async ctx => {
       return userState.delete(ctx.from.id);
     }
     
+    // Store the consolidation wallet for future use
+    await sharedStorage.storeConsolidationWallet(ctx.from.id, addr);
+    
     userState.set(ctx.from.id, { ...st, payoutAddr: addr, stage:'BURN_TOKEN_SELECTION' });
     await showBurnTokenSelection(ctx);
   }
@@ -2073,10 +1865,35 @@ bot.action(/CHOICE_(YES|NO)/, async ctx => {
   if (!st) return;
 
   if (ctx.match[1]==='YES') {
-    await ctx.reply(t(ctx, 'provide_sol_address'), {
-      reply_markup:{ force_reply:true }
-    });
-    userState.set(ctx.from.id, { ...st, stage:'AWAITING_PAYOUT_ADDR' });
+    // Check if user has a previous consolidation wallet
+    const previousWallet = await sharedStorage.getRecentConsolidationWallet(ctx.from.id);
+    
+    if (previousWallet) {
+      // Show options: new address or use previous
+      await ctx.reply(
+        `📮 Choose your consolidation option:\n\n` +
+        `🆕 Enter a new address\n` +
+        `📋 Use previously used wallet:\n` +
+        `\`${previousWallet}\`\n\n` +
+        `Click the address above to copy it, or choose an option below:`,
+        {
+          parse_mode: 'MarkdownV2',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🆕 Enter New Address', callback_data: 'USE_NEW_ADDRESS' }],
+              [{ text: '📋 Use Previous Wallet', callback_data: 'USE_PREVIOUS_WALLET' }]
+            ]
+          }
+        }
+      );
+      userState.set(ctx.from.id, { ...st, stage:'CONSOLIDATION_CHOICE', previousWallet });
+    } else {
+      // No previous wallet, proceed with normal flow
+      await ctx.reply(t(ctx, 'provide_sol_address'), {
+        reply_markup:{ force_reply:true }
+      });
+      userState.set(ctx.from.id, { ...st, stage:'AWAITING_PAYOUT_ADDR' });
+    }
   } else {
     userState.set(ctx.from.id, { ...st, stage:'TOKEN_SELECTION', payoutAddr:null });
     await showTokenSelection(ctx);
@@ -2091,10 +1908,35 @@ bot.action(/BURN_CHOICE_(YES|NO)/, async ctx => {
   if (!st) return;
 
   if (ctx.match[1]==='YES') {
-    await ctx.reply(t(ctx, 'provide_sol_address'), {
-      reply_markup:{ force_reply:true }
-    });
-    userState.set(ctx.from.id, { ...st, stage:'BURN_AWAITING_PAYOUT_ADDR' });
+    // Check if user has a previous consolidation wallet
+    const previousWallet = await sharedStorage.getRecentConsolidationWallet(ctx.from.id);
+    
+    if (previousWallet) {
+      // Show options: new address or use previous
+      await ctx.reply(
+        `📮 Choose your consolidation option:\n\n` +
+        `🆕 Enter a new address\n` +
+        `📋 Use previously used wallet:\n` +
+        `\`${previousWallet}\`\n\n` +
+        `Click the address above to copy it, or choose an option below:`,
+        {
+          parse_mode: 'MarkdownV2',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🆕 Enter New Address', callback_data: 'USE_NEW_ADDRESS_BURN' }],
+              [{ text: '📋 Use Previous Wallet', callback_data: 'USE_PREVIOUS_WALLET_BURN' }]
+            ]
+          }
+        }
+      );
+      userState.set(ctx.from.id, { ...st, stage:'BURN_CONSOLIDATION_CHOICE', previousWallet });
+    } else {
+      // No previous wallet, proceed with normal flow
+      await ctx.reply(t(ctx, 'provide_sol_address'), {
+        reply_markup:{ force_reply:true }
+      });
+      userState.set(ctx.from.id, { ...st, stage:'BURN_AWAITING_PAYOUT_ADDR' });
+    }
   } else {
     // Set up combined token list for selection
     const allTokens = [...(st.inactiveAccounts || []), ...(st.accountsWithBalances || [])];
@@ -2106,6 +1948,57 @@ bot.action(/BURN_CHOICE_(YES|NO)/, async ctx => {
     });
     await showBurnTokenSelection(ctx);
   }
+});
+
+// Handle consolidation wallet choice for regular flow
+bot.action('USE_NEW_ADDRESS', async ctx => {
+  await ctx.deleteMessage();
+  const st = userState.get(ctx.from.id);
+  if (!st) return;
+
+  await ctx.reply(t(ctx, 'provide_sol_address'), {
+    reply_markup:{ force_reply:true }
+  });
+  userState.set(ctx.from.id, { ...st, stage:'AWAITING_PAYOUT_ADDR' });
+});
+
+bot.action('USE_PREVIOUS_WALLET', async ctx => {
+  await ctx.deleteMessage();
+  const st = userState.get(ctx.from.id);
+  if (!st || !st.previousWallet) return;
+
+  console.log(`📋 User ${ctx.from.id} chose to use previous wallet: ${st.previousWallet}`);
+  userState.set(ctx.from.id, { ...st, payoutAddr: st.previousWallet, stage:'TOKEN_SELECTION' });
+  await showTokenSelection(ctx);
+});
+
+// Handle consolidation wallet choice for burn flow
+bot.action('USE_NEW_ADDRESS_BURN', async ctx => {
+  await ctx.deleteMessage();
+  const st = userState.get(ctx.from.id);
+  if (!st) return;
+
+  await ctx.reply(t(ctx, 'provide_sol_address'), {
+    reply_markup:{ force_reply:true }
+  });
+  userState.set(ctx.from.id, { ...st, stage:'BURN_AWAITING_PAYOUT_ADDR' });
+});
+
+bot.action('USE_PREVIOUS_WALLET_BURN', async ctx => {
+  await ctx.deleteMessage();
+  const st = userState.get(ctx.from.id);
+  if (!st || !st.previousWallet) return;
+
+  console.log(`🔥 User ${ctx.from.id} chose to use previous wallet for burn: ${st.previousWallet}`);
+  // Set up combined token list for selection
+  const allTokens = [...(st.inactiveAccounts || []), ...(st.accountsWithBalances || [])];
+  userState.set(ctx.from.id, { 
+    ...st, 
+    payoutAddr: st.previousWallet,
+    stage:'BURN_TOKEN_SELECTION',
+    allTokensForSelection: allTokens
+  });
+  await showBurnTokenSelection(ctx);
 });
 
 // Inactive token handlers
